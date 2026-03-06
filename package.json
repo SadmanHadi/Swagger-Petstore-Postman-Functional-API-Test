@@ -1,0 +1,12 @@
+{
+  "name": "petstore-postman-api-tests",
+  "version": "1.0.0",
+  "description": "Automated API testing suite for Swagger Petstore",
+  "scripts": {
+    "test": "newman run Petstore_API_Collection.json -e Petstore_Environment.json --reporters cli,htmlextra --reporter-htmlextra-export reports/postman/report.html"
+  },
+  "devDependencies": {
+    "newman": "^6.1.2",
+    "newman-reporter-htmlextra": "^1.23.1"
+  }
+}
