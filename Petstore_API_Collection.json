@@ -141,6 +141,30 @@
               "path": ["pet", "{{pet_id}}"]
             }
           }
+        },
+        {
+          "name": "Get Pet - Negative (404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 404\", () => pm.response.to.have.status(404));",
+                  "pm.test(\"Message is Pet not found\", () => pm.expect(pm.response.json().message).to.eql(\"Pet not found\"));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/pet/999999999999999",
+              "host": ["{{baseUrl}}"],
+              "path": ["pet", "999999999999999"]
+            }
+          }
         }
       ]
     },
@@ -196,6 +220,30 @@
               "raw": "{{baseUrl}}/user/{{user_name}}",
               "host": ["{{baseUrl}}"],
               "path": ["user", "{{user_name}}"]
+            }
+          }
+        },
+        {
+          "name": "Get User - Negative (404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 404\", () => pm.response.to.have.status(404));",
+                  "pm.test(\"Message is User not found\", () => pm.expect(pm.response.json().message).to.eql(\"User not found\"));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/user/nonexist_{{$timestamp}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["user", "nonexist_{{$timestamp}}"]
             }
           }
         }

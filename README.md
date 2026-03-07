@@ -35,9 +35,22 @@ Tests run automatically on every push via GitHub Actions.
 
 ## 📁 Project Structure
 
-- `Petstore_API_Collection.json`: Main testing suite.
-- `API_Test_Cases.md`: Test definitions.
+- `Petstore_API_Collection.json`: Main testing suite with 10+ test cases.
+- `API_Test_Cases.md`: Detailed test definitions (Happy, Negative, Boundary).
 - `Petstore_Environment.json`: Base configuration.
+
+## 📝 Project Notes
+
+### Assumptions
+
+- The [Swagger Petstore API](https://petstore.swagger.io/) is available and stable.
+- Data created during tests (Pets, Users) can be deleted or ignored without systemic impact.
+- Rate limits on the public API are not exceeded during test runs.
+
+### Known Limitations
+
+- Public API may occasionally return 500 or 504 due to heavy load; tests are designed to handle common failures but may fail on server-side instability.
+- Data is isolated using `$timestamp`, but global namespace collisions are theoretically possible.
 
 ## 🛠 Features
 
