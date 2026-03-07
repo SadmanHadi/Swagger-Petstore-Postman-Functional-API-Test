@@ -17,6 +17,15 @@
               "script": {
                 "exec": [
                   "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "const schema = {",
+                  "  \"type\": \"object\",",
+                  "  \"required\": [\"id\", \"name\"],",
+                  "  \"properties\": {",
+                  "    \"id\": { \"type\": \"number\" },",
+                  "    \"name\": { \"type\": \"string\" }",
+                  "  }",
+                  "};",
+                  "pm.test(\"Schema is valid\", () => pm.response.to.have.jsonSchema(schema));",
                   "// Capture ID from raw response to avoid precision loss",
                   "const id = pm.response.text().match(/\"id\":\\s*(\\d+)/)[1];",
                   "pm.collectionVariables.set(\"pet_id\", id);"
@@ -47,7 +56,11 @@
               "listen": "test",
               "script": {
                 "exec": [
-                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));"
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Name matches request\", () => {",
+                  "  const reqName = JSON.parse(pm.request.body.raw).name;",
+                  "  pm.expect(pm.response.json().name).to.eql(reqName);",
+                  "});"
                 ],
                 "type": "text/javascript"
               }
@@ -75,7 +88,21 @@
               "listen": "test",
               "script": {
                 "exec": [
-                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));"
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "const schema = {",
+                  "  \"type\": \"object\",",
+                  "  \"required\": [\"id\", \"name\", \"status\"],",
+                  "  \"properties\": {",
+                  "    \"id\": { \"type\": \"number\" },",
+                  "    \"name\": { \"type\": \"string\" },",
+                  "    \"status\": { \"type\": \"string\" }",
+                  "  }",
+                  "};",
+                  "pm.test(\"Schema is valid\", () => pm.response.to.have.jsonSchema(schema));",
+                  "pm.test(\"ID matches\", () => {",
+                  "    const responseId = pm.response.text().match(/\"id\":\\s*(\\d+)/)[1];",
+                  "    pm.expect(responseId).to.eql(pm.collectionVariables.get(\"pet_id\"));",
+                  "  });"
                 ],
                 "type": "text/javascript"
               }
@@ -98,7 +125,8 @@
               "listen": "test",
               "script": {
                 "exec": [
-                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));"
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Status is sold\", () => pm.expect(pm.response.json().status).to.eql(\"sold\"));"
                 ],
                 "type": "text/javascript"
               }
@@ -179,7 +207,8 @@
               "script": {
                 "exec": [
                   "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
-                  "pm.collectionVariables.set(\"user_name\", pm.request.body.raw.match(/\"username\":\\s*\"([^\"]+)\"/)[1]);"
+                  "const reqUser = JSON.parse(pm.request.body.raw).username;",
+                  "pm.collectionVariables.set(\"user_name\", reqUser);"
                 ],
                 "type": "text/javascript"
               }
