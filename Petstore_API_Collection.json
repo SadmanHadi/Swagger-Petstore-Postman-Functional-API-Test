@@ -2,9 +2,23 @@
   "info": {
     "_postman_id": "8ec7a915-4a11-4b2a-8c3b-3652c5c96f2a",
     "name": "Petstore API Functional Tests",
-    "description": " Playwright API Functional API tests for Swagger Petstore.",
+    "description": "Postman API Functional tests for Swagger Petstore.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Ensure a run-scoped timestamp for unique names (used by requests that need it)",
+          "if (!pm.collectionVariables.get('run_ts')) {",
+          "  pm.collectionVariables.set('run_ts', Date.now());",
+          "}"
+        ]
+      }
+    }
+  ],
   "item": [
     {
       "name": "Pet Operations",
@@ -72,6 +86,43 @@
             "body": {
               "mode": "raw",
               "raw": "{\n  \"name\": \"{{$randomAlphaNumeric}}{{$randomAlphaNumeric}}{{$randomAlphaNumeric}}\",\n  \"status\": \"available\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/pet",
+              "host": ["{{baseUrl}}"],
+              "path": ["pet"]
+            }
+          }
+        },
+        {
+          "name": "Add Pet - Negative (Empty Body)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 400, 405 or 415\", () => pm.expect(pm.response.code).to.be.oneOf([400, 405, 415]));",
+                  "pm.test(\"Error handling present\", () => {",
+                  "  const code = pm.response.code;",
+                  "  pm.expect([400, 405, 415]).to.include(code);",
+                  "  const text = pm.response.text();",
+                  "  if (text && text.trim().startsWith('{')) {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body && (body.message !== undefined || body.code !== undefined)).to.be.true;",
+                  "  }",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "",
               "options": { "raw": { "language": "json" } }
             },
             "url": {

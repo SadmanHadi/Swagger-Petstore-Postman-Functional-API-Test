@@ -21,7 +21,7 @@ This project adheres to **Global Rules** for API testing:
 
 1. Clone the repo.
 2. Install dependencies: `pnpm install`
-3. Initialize environment: `cp .env.example .env`
+3. Copy `.env.example` to `.env`; edit `.env` to set `BASE_URL` if you need a different API base URL (otherwise the default in `Petstore_Environment.json` is used).
 
 ## 🛠 Running Locally
 
@@ -44,10 +44,11 @@ Tests run automatically on every push via GitHub Actions.
 
 ## 📁 Project Structure
 
-- `Petstore_API_Collection.json`: Main testing suite with Schema validations.
-- `API_Test_Cases.md`: Detailed test definitions (Happy, Negative, Boundary).
-- `Petstore_Environment.json`: Base configuration.
-- `.env.example`: Template for local variables.
+- `Petstore_API_Collection.json`: Main testing suite (schema checks, pre-request script, happy/negative/boundary).
+- `API_Test_Cases.md`: Test case definitions (Happy, Negative, Boundary) with cleanup strategy.
+- `Petstore_Environment.json`: Base URL and environment.
+- `scripts/run-newman.js`: Test runner; loads `.env` so `BASE_URL` overrides base URL when set.
+- `.env.example`: Template for local overrides (e.g. `BASE_URL`).
 
 ## 📝 Project Notes
 
