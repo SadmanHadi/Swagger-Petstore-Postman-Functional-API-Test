@@ -5,7 +5,7 @@
  */
 class RequestBuilder {
     constructor(baseUrl) {
-        let base = baseUrl || pm.environment.get('baseUrl') || '';
+        let base = baseUrl || pm.variables.get('baseUrl') || '';
         this.baseUrl = base.replace(/\/+$/, '');
     }
 
