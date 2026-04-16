@@ -33,7 +33,11 @@ jobs:
       - name: Run Framework Tests
         run: pnpm test
         env:
-          BASE_URL: https://petstore.swagger.io
+          BASE_URL: ${{ vars.BASE_URL || 'https://petstore.swagger.io' }}
+          API_KEY: ${{ secrets.API_KEY }}
+          POSTMAN_API_KEY: ${{ secrets.POSTMAN_API_KEY }}
+          COLLECTION_UID: ${{ secrets.COLLECTION_UID }}
+          ENVIRONMENT_UID: ${{ secrets.ENVIRONMENT_UID }}
 
       - name: Upload Test Results
         if: always()
