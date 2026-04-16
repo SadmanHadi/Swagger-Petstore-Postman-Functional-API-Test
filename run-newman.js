@@ -31,7 +31,7 @@ async function run() {
     fs.mkdirSync(reportsDir, { recursive: true });
 
     // 4. Determine Resource Sources
-    // Priority: Cloud UID > Local File
+    // Priority: Valid Cloud UID > Local File
     let collectionSource = path.join(root, 'postman', 'collections', 'petstore.collection.json');
     let envSource = path.join(root, 'postman', 'environments', 'dev.environment.json');
 
@@ -39,8 +39,20 @@ async function run() {
     const hasApiKey = POSTMAN_API_KEY && POSTMAN_API_KEY.trim() !== '';
     
     if (hasCloudEnv && hasApiKey) {
-        console.log(`[Remote] Using Postman Cloud Environment: ${ENVIRONMENT_UID}`);
-        envSource = `https://api.getpostman.com/environments/${ENVIRONMENT_UID}?apikey=${POSTMAN_API_KEY}`;
+        const cloudUrl = `https://api.getpostman.com/environments/${ENVIRONMENT_UID}?apikey=${POSTMAN_API_KEY}`;
+        console.log(`[Cloud] Validating Postman Environment: ${ENVIRONMENT_UID}...`);
+        
+        // Pre-flight check to see if the Cloud URL is actually accessible
+        const check = spawnSync('curl', ['-I', '-s', '-L', cloudUrl], { encoding: 'utf8' });
+        const success = check.stdout && (check.stdout.includes('200 OK') || check.stdout.includes('HTTP/1.1 200') || check.stdout.includes('HTTP/2 200'));
+
+        if (success) {
+            console.log(`[Cloud] SUCCESS: Using remote environment.`);
+            envSource = cloudUrl;
+        } else {
+            console.warn(`[Cloud] WARNING: Could not access Postman Cloud Environment. Falling back to LOCAL file.`);
+            console.warn(`[Cloud] Reason: Postman API returned an error or ID is invalid.`);
+        }
     }
 
     const reportHtml = path.join(reportsDir, 'newman-report.html');
