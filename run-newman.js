@@ -35,10 +35,10 @@ async function run() {
     let collectionSource = path.join(root, 'postman', 'collections', 'petstore.collection.json');
     let envSource = path.join(root, 'postman', 'environments', 'dev.environment.json');
 
-    // NOTE: We generally avoid using COLLECTION_UID here because it would bypass 
-    // the modular framework build step. We use the locally-built one.
+    const hasCloudEnv = ENVIRONMENT_UID && ENVIRONMENT_UID.trim() !== '';
+    const hasApiKey = POSTMAN_API_KEY && POSTMAN_API_KEY.trim() !== '';
     
-    if (ENVIRONMENT_UID && POSTMAN_API_KEY) {
+    if (hasCloudEnv && hasApiKey) {
         console.log(`[Remote] Using Postman Cloud Environment: ${ENVIRONMENT_UID}`);
         envSource = `https://api.getpostman.com/environments/${ENVIRONMENT_UID}?apikey=${POSTMAN_API_KEY}`;
     }
