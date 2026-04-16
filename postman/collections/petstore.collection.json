@@ -1,0 +1,1140 @@
+{
+  "info": {
+    "name": "Petstore API Framework",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Pet",
+      "item": [
+        {
+          "name": "createPet",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Global Utility Injection",
+                  "/**\n * This module provides a standardized way to send HTTP requests within the Postman sandbox.\n */\nclass ApiClient {\n    /**\n     * Sends an HTTP request using Postman pm.sendRequest\n     * @param {Object} options - Request configuration (method, url, headers, body, queryParams)\n     * @param {Function} callback - Postman callback function\n     */\n    send(options, callback) {\n        const { method, url, headers, body, queryParams } = options;\n        \n        const request = {\n            url: this._buildUrl(url, queryParams),\n            method: method || 'GET',\n            header: headers || {},\n            body: body ? {\n                mode: 'raw',\n                raw: typeof body === 'string' ? body : JSON.stringify(body),\n                options: {\n                    raw: {\n                        language: 'json'\n                    }\n                }\n            } : undefined\n        };\n\n        pm.sendRequest(request, callback);\n    }\n\n    _buildUrl(baseUrl, queryParams) {\n        if (!queryParams) return baseUrl;\n        const query = Object.keys(queryParams)\n            .map(key => `${encodeURIComponent(key)}=${encodeURIComponent(queryParams[key])}`)\n            .join('&');\n        return `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}${query}`;\n    }\n}\n\n\n/**\n * Dynamic Request Builder\n * \n * Builds API requests with environment-aware configurations.\n */\nclass RequestBuilder {\n    constructor(baseUrl) {\n        let base = baseUrl || pm.environment.get('baseUrl');\n        this.baseUrl = base.endsWith('/') ? base.slice(0, -1) : base;\n    }\n\n    build(endpoint, method = 'GET', options = {}) {\n        return {\n            method: method,\n            url: `${this.baseUrl}/${endpoint.startsWith('/') ? endpoint.substring(1) : endpoint}`,\n            headers: options.headers || { 'Content-Type': 'application/json' },\n            body: options.body,\n            queryParams: options.queryParams\n        };\n    }\n}\n\n\n/**\n * Generic Response Validator\n * \n * Standardized assertions for API responses.\n */\nclass ResponseValidator {\n    /**\n     * Asserts internal status code\n     * @param {number} code \n     */\n    static assertStatusCode(code) {\n        pm.test(`Status code is ${code}`, () => {\n            pm.response.to.have.status(code);\n        });\n    }\n\n    /**\n     * Asserts field existence in response body\n     * @param {string} fieldName \n     */\n    static assertFieldExists(fieldName) {\n        pm.test(`Response contains field: ${fieldName}`, () => {\n            const jsonData = pm.response.json();\n            pm.expect(jsonData).to.have.property(fieldName);\n        });\n    }\n\n    /**\n     * Asserts field type\n     * @param {string} fieldName \n     * @param {string} type - 'string', 'number', 'boolean', etc.\n     */\n    static assertFieldType(fieldName, type) {\n        pm.test(`${fieldName} should be of type ${type}`, () => {\n            const jsonData = pm.response.json();\n            pm.expect(jsonData[fieldName]).to.be.a(type);\n        });\n    }\n\n    /**\n     * Asserts response body structure matches expected keys\n     * @param {string[]} requiredKeys \n     */\n    static assertStructure(requiredKeys) {\n        pm.test('Response structure is valid', () => {\n            const jsonData = pm.response.json();\n            requiredKeys.forEach(key => {\n                pm.expect(jsonData).to.have.property(key);\n            });\n        });\n    }\n}\n\n\n/**\n * JSON Schema Validation Engine\n * \n * Validates responses against provided JSON schemas.\n */\nclass SchemaValidator {\n    /**\n     * Validates a JSON schema\n     * @param {Object} schema - JSON schema object\n     * @param {Object} data - Optional data to validate (defaults to pm.response.json())\n     */\n    static validate(schema, data) {\n        pm.test('Response schema is valid', () => {\n            const traceData = data || pm.response.json();\n            pm.expect(traceData).to.have.jsonSchema(schema);\n        });\n    }\n}\n\n\n/**\n * Reusable Test Data Factory\n * \n * Generates random, domain-independent test data.\n */\nclass TestDataFactory {\n    generateId() {\n        return Math.floor(Math.random() * 1000000);\n    }\n\n    generateUsername(prefix = 'user') {\n        const timestamp = new Date().getTime();\n        return `${prefix}_${timestamp}`;\n    }\n\n    generateEmail(domain = 'test.com') {\n        const randomStr = Math.random().toString(36).substring(7);\n        return `tester_${randomStr}@${domain}`;\n    }\n\n    generateString(length = 10) {\n        let result = '';\n        const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';\n        for (let i = 0; i < length; i++) {\n            result += characters.charAt(Math.floor(Math.random() * characters.length));\n        }\n        return result;\n    }\n}\n",
+                  "const factory = new TestDataFactory();",
+                  "const builder = new RequestBuilder();",
+                  "",
+                  "/**",
+                  " * TC-PET-01: Create Pet (Happy Path)",
+                  " */",
+                  "",
+                  "// Pre-request Script logic",
+                  "const petData = {",
+                  "    id: factory.generateId(),",
+                  "    name: \"Pet_\" + factory.generateString(5),",
+                  "    photoUrls: [\"https://example.com/photo.jpg\"],",
+                  "    status: \"available\"",
+                  "};",
+                  "",
+                  "const req = builder.build('/pet', 'POST', { body: petData });",
+                  "",
+                  "// Set variables for the Postman request object",
+                  "pm.variables.set('reqMethod', req.method);",
+                  "pm.variables.set('reqUrl', req.url);",
+                  "pm.variables.set('reqBody', JSON.stringify(req.body));",
+                  "",
+                  "// Apply request overrides",
+                  "if (typeof req !== 'undefined') {",
+                  "    console.log(`[Framework] Request ${pm.info.requestName}: ${req.method} ${req.url}`);",
+                  "    pm.request.url.update(req.url);",
+                  "    pm.request.method = req.method;",
+                  "    if (req.body) {",
+                  "        pm.request.body.update({",
+                  "            mode: 'raw',",
+                  "            raw: JSON.stringify(req.body)",
+                  "        });",
+                  "    }",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Global Utility Injection",
+                  "/**\n * This module provides a standardized way to send HTTP requests within the Postman sandbox.\n */\nclass ApiClient {\n    /**\n     * Sends an HTTP request using Postman pm.sendRequest\n     * @param {Object} options - Request configuration (method, url, headers, body, queryParams)\n     * @param {Function} callback - Postman callback function\n     */\n    send(options, callback) {\n        const { method, url, headers, body, queryParams } = options;\n        \n        const request = {\n            url: this._buildUrl(url, queryParams),\n            method: method || 'GET',\n            header: headers || {},\n            body: body ? {\n                mode: 'raw',\n                raw: typeof body === 'string' ? body : JSON.stringify(body),\n                options: {\n                    raw: {\n                        language: 'json'\n                    }\n                }\n            } : undefined\n        };\n\n        pm.sendRequest(request, callback);\n    }\n\n    _buildUrl(baseUrl, queryParams) {\n        if (!queryParams) return baseUrl;\n        const query = Object.keys(queryParams)\n            .map(key => `${encodeURIComponent(key)}=${encodeURIComponent(queryParams[key])}`)\n            .join('&');\n        return `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}${query}`;\n    }\n}\n\n\n/**\n * Dynamic Request Builder\n * \n * Builds API requests with environment-aware configurations.\n */\nclass RequestBuilder {\n    constructor(baseUrl) {\n        let base = baseUrl || pm.environment.get('baseUrl');\n        this.baseUrl = base.endsWith('/') ? base.slice(0, -1) : base;\n    }\n\n    build(endpoint, method = 'GET', options = {}) {\n        return {\n            method: method,\n            url: `${this.baseUrl}/${endpoint.startsWith('/') ? endpoint.substring(1) : endpoint}`,\n            headers: options.headers || { 'Content-Type': 'application/json' },\n            body: options.body,\n            queryParams: options.queryParams\n        };\n    }\n}\n\n\n/**\n * Generic Response Validator\n * \n * Standardized assertions for API responses.\n */\nclass ResponseValidator {\n    /**\n     * Asserts internal status code\n     * @param {number} code \n     */\n    static assertStatusCode(code) {\n        pm.test(`Status code is ${code}`, () => {\n            pm.response.to.have.status(code);\n        });\n    }\n\n    /**\n     * Asserts field existence in response body\n     * @param {string} fieldName \n     */\n    static assertFieldExists(fieldName) {\n        pm.test(`Response contains field: ${fieldName}`, () => {\n            const jsonData = pm.response.json();\n            pm.expect(jsonData).to.have.property(fieldName);\n        });\n    }\n\n    /**\n     * Asserts field type\n     * @param {string} fieldName \n     * @param {string} type - 'string', 'number', 'boolean', etc.\n     */\n    static assertFieldType(fieldName, type) {\n        pm.test(`${fieldName} should be of type ${type}`, () => {\n            const jsonData = pm.response.json();\n            pm.expect(jsonData[fieldName]).to.be.a(type);\n        });\n    }\n\n    /**\n     * Asserts response body structure matches expected keys\n     * @param {string[]} requiredKeys \n     */\n    static assertStructure(requiredKeys) {\n        pm.test('Response structure is valid', () => {\n            const jsonData = pm.response.json();\n            requiredKeys.forEach(key => {\n                pm.expect(jsonData).to.have.property(key);\n            });\n        });\n    }\n}\n\n\n/**\n * JSON Schema Validation Engine\n * \n * Validates responses against provided JSON schemas.\n */\nclass SchemaValidator {\n    /**\n     * Validates a JSON schema\n     * @param {Object} schema - JSON schema object\n     * @param {Object} data - Optional data to validate (defaults to pm.response.json())\n     */\n    static validate(schema, data) {\n        pm.test('Response schema is valid', () => {\n            const traceData = data || pm.response.json();\n            pm.expect(traceData).to.have.jsonSchema(schema);\n        });\n    }\n}\n\n\n/**\n * Reusable Test Data Factory\n * \n * Generates random, domain-independent test data.\n */\nclass TestDataFactory {\n    generateId() {\n        return Math.floor(Math.random() * 1000000);\n    }\n\n    generateUsername(prefix = 'user') {\n        const timestamp = new Date().getTime();\n        return `${prefix}_${timestamp}`;\n    }\n\n    generateEmail(domain = 'test.com') {\n        const randomStr = Math.random().toString(36).substring(7);\n        return `tester_${randomStr}@${domain}`;\n    }\n\n    generateString(length = 10) {\n        let result = '';\n        const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';\n        for (let i = 0; i < length; i++) {\n            result += characters.charAt(Math.floor(Math.random() * characters.length));\n        }\n        return result;\n    }\n}\n",
+                  "const validator = ResponseValidator;",
+                  "",
+                  "console.log(`[Framework] Response ${pm.info.requestName}: ${pm.response.code} ${pm.response.status}`);",
+                  "const schema = {",
+                  "    \"type\": \"object\",",
+                  "    \"properties\": {",
+                  "        \"id\": { \"type\": \"number\" },",
+                  "        \"name\": { \"type\": \"string\" },",
+                  "        \"status\": { \"type\": \"string\" }",
+                  "    },",
+                  "    \"required\": [\"id\", \"name\"]",
+                  "};",
+                  "",
+                  "validator.assertStatusCode(200);",
+                  "SchemaValidator.validate(schema);",
+                  "validator.assertFieldExists('id');",
+                  "pm.environment.set('petId', pm.response.json().id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": ""
+            },
+            "url": {
+              "raw": "{{baseUrl}}",
+              "host": [
+                "{{baseUrl}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "createPetEmptyName",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Global Utility Injection",
+                  "/**\n * This module provides a standardized way to send HTTP requests within the Postman sandbox.\n */\nclass ApiClient {\n    /**\n     * Sends an HTTP request using Postman pm.sendRequest\n     * @param {Object} options - Request configuration (method, url, headers, body, queryParams)\n     * @param {Function} callback - Postman callback function\n     */\n    send(options, callback) {\n        const { method, url, headers, body, queryParams } = options;\n        \n        const request = {\n            url: this._buildUrl(url, queryParams),\n            method: method || 'GET',\n            header: headers || {},\n            body: body ? {\n                mode: 'raw',\n                raw: typeof body === 'string' ? body : JSON.stringify(body),\n                options: {\n                    raw: {\n                        language: 'json'\n                    }\n                }\n            } : undefined\n        };\n\n        pm.sendRequest(request, callback);\n    }\n\n    _buildUrl(baseUrl, queryParams) {\n        if (!queryParams) return baseUrl;\n        const query = Object.keys(queryParams)\n            .map(key => `${encodeURIComponent(key)}=${encodeURIComponent(queryParams[key])}`)\n            .join('&');\n        return `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}${query}`;\n    }\n}\n\n\n/**\n * Dynamic Request Builder\n * \n * Builds API requests with environment-aware configurations.\n */\nclass RequestBuilder {\n    constructor(baseUrl) {\n        let base = baseUrl || pm.environment.get('baseUrl');\n        this.baseUrl = base.endsWith('/') ? base.slice(0, -1) : base;\n    }\n\n    build(endpoint, method = 'GET', options = {}) {\n        return {\n            method: method,\n            url: `${this.baseUrl}/${endpoint.startsWith('/') ? endpoint.substring(1) : endpoint}`,\n            headers: options.headers || { 'Content-Type': 'application/json' },\n            body: options.body,\n            queryParams: options.queryParams\n        };\n    }\n}\n\n\n/**\n * Generic Response Validator\n * \n * Standardized assertions for API responses.\n */\nclass ResponseValidator {\n    /**\n     * Asserts internal status code\n     * @param {number} code \n     */\n    static assertStatusCode(code) {\n        pm.test(`Status code is ${code}`, () => {\n            pm.response.to.have.status(code);\n        });\n    }\n\n    /**\n     * Asserts field existence in response body\n     * @param {string} fieldName \n     */\n    static assertFieldExists(fieldName) {\n        pm.test(`Response contains field: ${fieldName}`, () => {\n            const jsonData = pm.response.json();\n            pm.expect(jsonData).to.have.property(fieldName);\n        });\n    }\n\n    /**\n     * Asserts field type\n     * @param {string} fieldName \n     * @param {string} type - 'string', 'number', 'boolean', etc.\n     */\n    static assertFieldType(fieldName, type) {\n        pm.test(`${fieldName} should be of type ${type}`, () => {\n            const jsonData = pm.response.json();\n            pm.expect(jsonData[fieldName]).to.be.a(type);\n        });\n    }\n\n    /**\n     * Asserts response body structure matches expected keys\n     * @param {string[]} requiredKeys \n     */\n    static assertStructure(requiredKeys) {\n        pm.test('Response structure is valid', () => {\n            const jsonData = pm.response.json();\n            requiredKeys.forEach(key => {\n                pm.expect(jsonData).to.have.property(key);\n            });\n        });\n    }\n}\n\n\n/**\n * JSON Schema Validation Engine\n * \n * Validates responses against provided JSON schemas.\n */\nclass SchemaValidator {\n    /**\n     * Validates a JSON schema\n     * @param {Object} schema - JSON schema object\n     * @param {Object} data - Optional data to validate (defaults to pm.response.json())\n     */\n    static validate(schema, data) {\n        pm.test('Response schema is valid', () => {\n            const traceData = data || pm.response.json();\n            pm.expect(traceData).to.have.jsonSchema(schema);\n        });\n    }\n}\n\n\n/**\n * Reusable Test Data Factory\n * \n * Generates random, domain-independent test data.\n */\nclass TestDataFactory {\n    generateId() {\n        return Math.floor(Math.random() * 1000000);\n    }\n\n    generateUsername(prefix = 'user') {\n        const timestamp = new Date().getTime();\n        return `${prefix}_${timestamp}`;\n    }\n\n    generateEmail(domain = 'test.com') {\n        const randomStr = Math.random().toString(36).substring(7);\n        return `tester_${randomStr}@${domain}`;\n    }\n\n    generateString(length = 10) {\n        let result = '';\n        const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';\n        for (let i = 0; i < length; i++) {\n            result += characters.charAt(Math.floor(Math.random() * characters.length));\n        }\n        return result;\n    }\n}\n",
+                  "const factory = new TestDataFactory();",
+                  "const builder = new RequestBuilder();",
+                  "",
+                  "/**",
+                  " * TC-PET-06: [BOUND] Create Pet Empty Name",
+                  " */",
+                  "",
+                  "// Pre-request Script logic",
+                  "const petData = {",
+                  "    id: factory.generateId(),",
+                  "    name: \"\",",
+                  "    photoUrls: [\"https://example.com/photo.jpg\"],",
+                  "    status: \"available\"",
+                  "};",
+                  "",
+                  "const req = builder.build('/pet', 'POST', { body: petData });",
+                  "",
+                  "// Apply request overrides",
+                  "if (typeof req !== 'undefined') {",
+                  "    console.log(`[Framework] Request ${pm.info.requestName}: ${req.method} ${req.url}`);",
+                  "    pm.request.url.update(req.url);",
+                  "    pm.request.method = req.method;",
+                  "    if (req.body) {",
+                  "        pm.request.body.update({",
+                  "            mode: 'raw',",
+                  "            raw: JSON.stringify(req.body)",
+                  "        });",
+                  "    }",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Global Utility Injection",
+                  "/**\n * This module provides a standardized way to send HTTP requests within the Postman sandbox.\n */\nclass ApiClient {\n    /**\n     * Sends an HTTP request using Postman pm.sendRequest\n     * @param {Object} options - Request configuration (method, url, headers, body, queryParams)\n     * @param {Function} callback - Postman callback function\n     */\n    send(options, callback) {\n        const { method, url, headers, body, queryParams } = options;\n        \n        const request = {\n            url: this._buildUrl(url, queryParams),\n            method: method || 'GET',\n            header: headers || {},\n            body: body ? {\n                mode: 'raw',\n                raw: typeof body === 'string' ? body : JSON.stringify(body),\n                options: {\n                    raw: {\n                        language: 'json'\n                    }\n                }\n            } : undefined\n        };\n\n        pm.sendRequest(request, callback);\n    }\n\n    _buildUrl(baseUrl, queryParams) {\n        if (!queryParams) return baseUrl;\n        const query = Object.keys(queryParams)\n            .map(key => `${encodeURIComponent(key)}=${encodeURIComponent(queryParams[key])}`)\n            .join('&');\n        return `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}${query}`;\n    }\n}\n\n\n/**\n * Dynamic Request Builder\n * \n * Builds API requests with environment-aware configurations.\n */\nclass RequestBuilder {\n    constructor(baseUrl) {\n        let base = baseUrl || pm.environment.get('baseUrl');\n        this.baseUrl = base.endsWith('/') ? base.slice(0, -1) : base;\n    }\n\n    build(endpoint, method = 'GET', options = {}) {\n        return {\n            method: method,\n            url: `${this.baseUrl}/${endpoint.startsWith('/') ? endpoint.substring(1) : endpoint}`,\n            headers: options.headers || { 'Content-Type': 'application/json' },\n            body: options.body,\n            queryParams: options.queryParams\n        };\n    }\n}\n\n\n/**\n * Generic Response Validator\n * \n * Standardized assertions for API responses.\n */\nclass ResponseValidator {\n    /**\n     * Asserts internal status code\n     * @param {number} code \n     */\n    static assertStatusCode(code) {\n        pm.test(`Status code is ${code}`, () => {\n            pm.response.to.have.status(code);\n        });\n    }\n\n    /**\n     * Asserts field existence in response body\n     * @param {string} fieldName \n     */\n    static assertFieldExists(fieldName) {\n        pm.test(`Response contains field: ${fieldName}`, () => {\n            const jsonData = pm.response.json();\n            pm.expect(jsonData).to.have.property(fieldName);\n        });\n    }\n\n    /**\n     * Asserts field type\n     * @param {string} fieldName \n     * @param {string} type - 'string', 'number', 'boolean', etc.\n     */\n    static assertFieldType(fieldName, type) {\n        pm.test(`${fieldName} should be of type ${type}`, () => {\n            const jsonData = pm.response.json();\n            pm.expect(jsonData[fieldName]).to.be.a(type);\n        });\n    }\n\n    /**\n     * Asserts response body structure matches expected keys\n     * @param {string[]} requiredKeys \n     */\n    static assertStructure(requiredKeys) {\n        pm.test('Response structure is valid', () => {\n            const jsonData = pm.response.json();\n            requiredKeys.forEach(key => {\n                pm.expect(jsonData).to.have.property(key);\n            });\n        });\n    }\n}\n\n\n/**\n * JSON Schema Validation Engine\n * \n * Validates responses against provided JSON schemas.\n */\nclass SchemaValidator {\n    /**\n     * Validates a JSON schema\n     * @param {Object} schema - JSON schema object\n     * @param {Object} data - Optional data to validate (defaults to pm.response.json())\n     */\n    static validate(schema, data) {\n        pm.test('Response schema is valid', () => {\n            const traceData = data || pm.response.json();\n            pm.expect(traceData).to.have.jsonSchema(schema);\n        });\n    }\n}\n\n\n/**\n * Reusable Test Data Factory\n * \n * Generates random, domain-independent test data.\n */\nclass TestDataFactory {\n    generateId() {\n        return Math.floor(Math.random() * 1000000);\n    }\n\n    generateUsername(prefix = 'user') {\n        const timestamp = new Date().getTime();\n        return `${prefix}_${timestamp}`;\n    }\n\n    generateEmail(domain = 'test.com') {\n        const randomStr = Math.random().toString(36).substring(7);\n        return `tester_${randomStr}@${domain}`;\n    }\n\n    generateString(length = 10) {\n        let result = '';\n        const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';\n        for (let i = 0; i < length; i++) {\n            result += characters.charAt(Math.floor(Math.random() * characters.length));\n        }\n        return result;\n    }\n}\n",
+                  "const validator = ResponseValidator;",
+                  "",
+                  "console.log(`[Framework] Response ${pm.info.requestName}: ${pm.response.code} ${pm.response.status}`);",
+                  "validator.assertStatusCode(200);",
+                  "pm.test(\"Name is empty string\", () => {",
+                  "    pm.expect(pm.response.json().name).to.eql(\"\");",
+                  "});",
+                  "// Cleanup - Optional since it's just one pet",
+                  "pm.environment.set('petIdToDelete', pm.response.json().id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": ""
+            },
+            "url": {
+              "raw": "{{baseUrl}}",
+              "host": [
+                "{{baseUrl}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "getPet",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Global Utility Injection",
+                  "/**\n * This module provides a standardized way to send HTTP requests within the Postman sandbox.\n */\nclass ApiClient {\n    /**\n     * Sends an HTTP request using Postman pm.sendRequest\n     * @param {Object} options - Request configuration (method, url, headers, body, queryParams)\n     * @param {Function} callback - Postman callback function\n     */\n    send(options, callback) {\n        const { method, url, headers, body, queryParams } = options;\n        \n        const request = {\n            url: this._buildUrl(url, queryParams),\n            method: method || 'GET',\n            header: headers || {},\n            body: body ? {\n                mode: 'raw',\n                raw: typeof body === 'string' ? body : JSON.stringify(body),\n                options: {\n                    raw: {\n                        language: 'json'\n                    }\n                }\n            } : undefined\n        };\n\n        pm.sendRequest(request, callback);\n    }\n\n    _buildUrl(baseUrl, queryParams) {\n        if (!queryParams) return baseUrl;\n        const query = Object.keys(queryParams)\n            .map(key => `${encodeURIComponent(key)}=${encodeURIComponent(queryParams[key])}`)\n            .join('&');\n        return `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}${query}`;\n    }\n}\n\n\n/**\n * Dynamic Request Builder\n * \n * Builds API requests with environment-aware configurations.\n */\nclass RequestBuilder {\n    constructor(baseUrl) {\n        let base = baseUrl || pm.environment.get('baseUrl');\n        this.baseUrl = base.endsWith('/') ? base.slice(0, -1) : base;\n    }\n\n    build(endpoint, method = 'GET', options = {}) {\n        return {\n            method: method,\n            url: `${this.baseUrl}/${endpoint.startsWith('/') ? endpoint.substring(1) : endpoint}`,\n            headers: options.headers || { 'Content-Type': 'application/json' },\n            body: options.body,\n            queryParams: options.queryParams\n        };\n    }\n}\n\n\n/**\n * Generic Response Validator\n * \n * Standardized assertions for API responses.\n */\nclass ResponseValidator {\n    /**\n     * Asserts internal status code\n     * @param {number} code \n     */\n    static assertStatusCode(code) {\n        pm.test(`Status code is ${code}`, () => {\n            pm.response.to.have.status(code);\n        });\n    }\n\n    /**\n     * Asserts field existence in response body\n     * @param {string} fieldName \n     */\n    static assertFieldExists(fieldName) {\n        pm.test(`Response contains field: ${fieldName}`, () => {\n            const jsonData = pm.response.json();\n            pm.expect(jsonData).to.have.property(fieldName);\n        });\n    }\n\n    /**\n     * Asserts field type\n     * @param {string} fieldName \n     * @param {string} type - 'string', 'number', 'boolean', etc.\n     */\n    static assertFieldType(fieldName, type) {\n        pm.test(`${fieldName} should be of type ${type}`, () => {\n            const jsonData = pm.response.json();\n            pm.expect(jsonData[fieldName]).to.be.a(type);\n        });\n    }\n\n    /**\n     * Asserts response body structure matches expected keys\n     * @param {string[]} requiredKeys \n     */\n    static assertStructure(requiredKeys) {\n        pm.test('Response structure is valid', () => {\n            const jsonData = pm.response.json();\n            requiredKeys.forEach(key => {\n                pm.expect(jsonData).to.have.property(key);\n            });\n        });\n    }\n}\n\n\n/**\n * JSON Schema Validation Engine\n * \n * Validates responses against provided JSON schemas.\n */\nclass SchemaValidator {\n    /**\n     * Validates a JSON schema\n     * @param {Object} schema - JSON schema object\n     * @param {Object} data - Optional data to validate (defaults to pm.response.json())\n     */\n    static validate(schema, data) {\n        pm.test('Response schema is valid', () => {\n            const traceData = data || pm.response.json();\n            pm.expect(traceData).to.have.jsonSchema(schema);\n        });\n    }\n}\n\n\n/**\n * Reusable Test Data Factory\n * \n * Generates random, domain-independent test data.\n */\nclass TestDataFactory {\n    generateId() {\n        return Math.floor(Math.random() * 1000000);\n    }\n\n    generateUsername(prefix = 'user') {\n        const timestamp = new Date().getTime();\n        return `${prefix}_${timestamp}`;\n    }\n\n    generateEmail(domain = 'test.com') {\n        const randomStr = Math.random().toString(36).substring(7);\n        return `tester_${randomStr}@${domain}`;\n    }\n\n    generateString(length = 10) {\n        let result = '';\n        const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';\n        for (let i = 0; i < length; i++) {\n            result += characters.charAt(Math.floor(Math.random() * characters.length));\n        }\n        return result;\n    }\n}\n",
+                  "const factory = new TestDataFactory();",
+                  "const builder = new RequestBuilder();",
+                  "",
+                  "// Pre-request Script logic",
+                  "const petId = pm.environment.get('petId');",
+                  "const req = builder.build(`/pet/${petId}`, 'GET');",
+                  "",
+                  "// Apply request overrides",
+                  "if (typeof req !== 'undefined') {",
+                  "    console.log(`[Framework] Request ${pm.info.requestName}: ${req.method} ${req.url}`);",
+                  "    pm.request.url.update(req.url);",
+                  "    pm.request.method = req.method;",
+                  "    if (req.body) {",
+                  "        pm.request.body.update({",
+                  "            mode: 'raw',",
+                  "            raw: JSON.stringify(req.body)",
+                  "        });",
+                  "    }",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Global Utility Injection",
+                  "/**\n * This module provides a standardized way to send HTTP requests within the Postman sandbox.\n */\nclass ApiClient {\n    /**\n     * Sends an HTTP request using Postman pm.sendRequest\n     * @param {Object} options - Request configuration (method, url, headers, body, queryParams)\n     * @param {Function} callback - Postman callback function\n     */\n    send(options, callback) {\n        const { method, url, headers, body, queryParams } = options;\n        \n        const request = {\n            url: this._buildUrl(url, queryParams),\n            method: method || 'GET',\n            header: headers || {},\n            body: body ? {\n                mode: 'raw',\n                raw: typeof body === 'string' ? body : JSON.stringify(body),\n                options: {\n                    raw: {\n                        language: 'json'\n                    }\n                }\n            } : undefined\n        };\n\n        pm.sendRequest(request, callback);\n    }\n\n    _buildUrl(baseUrl, queryParams) {\n        if (!queryParams) return baseUrl;\n        const query = Object.keys(queryParams)\n            .map(key => `${encodeURIComponent(key)}=${encodeURIComponent(queryParams[key])}`)\n            .join('&');\n        return `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}${query}`;\n    }\n}\n\n\n/**\n * Dynamic Request Builder\n * \n * Builds API requests with environment-aware configurations.\n */\nclass RequestBuilder {\n    constructor(baseUrl) {\n        let base = baseUrl || pm.environment.get('baseUrl');\n        this.baseUrl = base.endsWith('/') ? base.slice(0, -1) : base;\n    }\n\n    build(endpoint, method = 'GET', options = {}) {\n        return {\n            method: method,\n            url: `${this.baseUrl}/${endpoint.startsWith('/') ? endpoint.substring(1) : endpoint}`,\n            headers: options.headers || { 'Content-Type': 'application/json' },\n            body: options.body,\n            queryParams: options.queryParams\n        };\n    }\n}\n\n\n/**\n * Generic Response Validator\n * \n * Standardized assertions for API responses.\n */\nclass ResponseValidator {\n    /**\n     * Asserts internal status code\n     * @param {number} code \n     */\n    static assertStatusCode(code) {\n        pm.test(`Status code is ${code}`, () => {\n            pm.response.to.have.status(code);\n        });\n    }\n\n    /**\n     * Asserts field existence in response body\n     * @param {string} fieldName \n     */\n    static assertFieldExists(fieldName) {\n        pm.test(`Response contains field: ${fieldName}`, () => {\n            const jsonData = pm.response.json();\n            pm.expect(jsonData).to.have.property(fieldName);\n        });\n    }\n\n    /**\n     * Asserts field type\n     * @param {string} fieldName \n     * @param {string} type - 'string', 'number', 'boolean', etc.\n     */\n    static assertFieldType(fieldName, type) {\n        pm.test(`${fieldName} should be of type ${type}`, () => {\n            const jsonData = pm.response.json();\n            pm.expect(jsonData[fieldName]).to.be.a(type);\n        });\n    }\n\n    /**\n     * Asserts response body structure matches expected keys\n     * @param {string[]} requiredKeys \n     */\n    static assertStructure(requiredKeys) {\n        pm.test('Response structure is valid', () => {\n            const jsonData = pm.response.json();\n            requiredKeys.forEach(key => {\n                pm.expect(jsonData).to.have.property(key);\n            });\n        });\n    }\n}\n\n\n/**\n * JSON Schema Validation Engine\n * \n * Validates responses against provided JSON schemas.\n */\nclass SchemaValidator {\n    /**\n     * Validates a JSON schema\n     * @param {Object} schema - JSON schema object\n     * @param {Object} data - Optional data to validate (defaults to pm.response.json())\n     */\n    static validate(schema, data) {\n        pm.test('Response schema is valid', () => {\n            const traceData = data || pm.response.json();\n            pm.expect(traceData).to.have.jsonSchema(schema);\n        });\n    }\n}\n\n\n/**\n * Reusable Test Data Factory\n * \n * Generates random, domain-independent test data.\n */\nclass TestDataFactory {\n    generateId() {\n        return Math.floor(Math.random() * 1000000);\n    }\n\n    generateUsername(prefix = 'user') {\n        const timestamp = new Date().getTime();\n        return `${prefix}_${timestamp}`;\n    }\n\n    generateEmail(domain = 'test.com') {\n        const randomStr = Math.random().toString(36).substring(7);\n        return `tester_${randomStr}@${domain}`;\n    }\n\n    generateString(length = 10) {\n        let result = '';\n        const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';\n        for (let i = 0; i < length; i++) {\n            result += characters.charAt(Math.floor(Math.random() * characters.length));\n        }\n        return result;\n    }\n}\n",
+                  "const validator = ResponseValidator;",
+                  "",
+                  "console.log(`[Framework] Response ${pm.info.requestName}: ${pm.response.code} ${pm.response.status}`);",
+                  "validator.assertStatusCode(200);",
+                  "validator.assertFieldExists('id');",
+                  "pm.test(\"ID matches environment petId\", () => {",
+                  "    const petId = pm.environment.get('petId');",
+                  "    pm.expect(pm.response.json().id).to.eql(parseInt(petId));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": ""
+            },
+            "url": {
+              "raw": "{{baseUrl}}",
+              "host": [
+                "{{baseUrl}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "updatePet",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Global Utility Injection",
+                  "/**\n * This module provides a standardized way to send HTTP requests within the Postman sandbox.\n */\nclass ApiClient {\n    /**\n     * Sends an HTTP request using Postman pm.sendRequest\n     * @param {Object} options - Request configuration (method, url, headers, body, queryParams)\n     * @param {Function} callback - Postman callback function\n     */\n    send(options, callback) {\n        const { method, url, headers, body, queryParams } = options;\n        \n        const request = {\n            url: this._buildUrl(url, queryParams),\n            method: method || 'GET',\n            header: headers || {},\n            body: body ? {\n                mode: 'raw',\n                raw: typeof body === 'string' ? body : JSON.stringify(body),\n                options: {\n                    raw: {\n                        language: 'json'\n                    }\n                }\n            } : undefined\n        };\n\n        pm.sendRequest(request, callback);\n    }\n\n    _buildUrl(baseUrl, queryParams) {\n        if (!queryParams) return baseUrl;\n        const query = Object.keys(queryParams)\n            .map(key => `${encodeURIComponent(key)}=${encodeURIComponent(queryParams[key])}`)\n            .join('&');\n        return `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}${query}`;\n    }\n}\n\n\n/**\n * Dynamic Request Builder\n * \n * Builds API requests with environment-aware configurations.\n */\nclass RequestBuilder {\n    constructor(baseUrl) {\n        let base = baseUrl || pm.environment.get('baseUrl');\n        this.baseUrl = base.endsWith('/') ? base.slice(0, -1) : base;\n    }\n\n    build(endpoint, method = 'GET', options = {}) {\n        return {\n            method: method,\n            url: `${this.baseUrl}/${endpoint.startsWith('/') ? endpoint.substring(1) : endpoint}`,\n            headers: options.headers || { 'Content-Type': 'application/json' },\n            body: options.body,\n            queryParams: options.queryParams\n        };\n    }\n}\n\n\n/**\n * Generic Response Validator\n * \n * Standardized assertions for API responses.\n */\nclass ResponseValidator {\n    /**\n     * Asserts internal status code\n     * @param {number} code \n     */\n    static assertStatusCode(code) {\n        pm.test(`Status code is ${code}`, () => {\n            pm.response.to.have.status(code);\n        });\n    }\n\n    /**\n     * Asserts field existence in response body\n     * @param {string} fieldName \n     */\n    static assertFieldExists(fieldName) {\n        pm.test(`Response contains field: ${fieldName}`, () => {\n            const jsonData = pm.response.json();\n            pm.expect(jsonData).to.have.property(fieldName);\n        });\n    }\n\n    /**\n     * Asserts field type\n     * @param {string} fieldName \n     * @param {string} type - 'string', 'number', 'boolean', etc.\n     */\n    static assertFieldType(fieldName, type) {\n        pm.test(`${fieldName} should be of type ${type}`, () => {\n            const jsonData = pm.response.json();\n            pm.expect(jsonData[fieldName]).to.be.a(type);\n        });\n    }\n\n    /**\n     * Asserts response body structure matches expected keys\n     * @param {string[]} requiredKeys \n     */\n    static assertStructure(requiredKeys) {\n        pm.test('Response structure is valid', () => {\n            const jsonData = pm.response.json();\n            requiredKeys.forEach(key => {\n                pm.expect(jsonData).to.have.property(key);\n            });\n        });\n    }\n}\n\n\n/**\n * JSON Schema Validation Engine\n * \n * Validates responses against provided JSON schemas.\n */\nclass SchemaValidator {\n    /**\n     * Validates a JSON schema\n     * @param {Object} schema - JSON schema object\n     * @param {Object} data - Optional data to validate (defaults to pm.response.json())\n     */\n    static validate(schema, data) {\n        pm.test('Response schema is valid', () => {\n            const traceData = data || pm.response.json();\n            pm.expect(traceData).to.have.jsonSchema(schema);\n        });\n    }\n}\n\n\n/**\n * Reusable Test Data Factory\n * \n * Generates random, domain-independent test data.\n */\nclass TestDataFactory {\n    generateId() {\n        return Math.floor(Math.random() * 1000000);\n    }\n\n    generateUsername(prefix = 'user') {\n        const timestamp = new Date().getTime();\n        return `${prefix}_${timestamp}`;\n    }\n\n    generateEmail(domain = 'test.com') {\n        const randomStr = Math.random().toString(36).substring(7);\n        return `tester_${randomStr}@${domain}`;\n    }\n\n    generateString(length = 10) {\n        let result = '';\n        const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';\n        for (let i = 0; i < length; i++) {\n            result += characters.charAt(Math.floor(Math.random() * characters.length));\n        }\n        return result;\n    }\n}\n",
+                  "const factory = new TestDataFactory();",
+                  "const builder = new RequestBuilder();",
+                  "",
+                  "/**",
+                  " * TC-PET-03: Update Pet (Happy Path)",
+                  " */",
+                  "",
+                  "// Pre-request Script logic",
+                  "",
+                  "const petId = pm.environment.get('petId');",
+                  "",
+                  "const petData = {",
+                  "    id: parseInt(petId),",
+                  "    name: \"Updated_Pet\",",
+                  "    status: \"sold\"",
+                  "};",
+                  "",
+                  "const req = builder.build('/pet', 'PUT', { body: petData });",
+                  "",
+                  "pm.variables.set('reqMethod', req.method);",
+                  "pm.variables.set('reqUrl', req.url);",
+                  "pm.variables.set('reqBody', JSON.stringify(req.body));",
+                  "",
+                  "// Apply request overrides",
+                  "if (typeof req !== 'undefined') {",
+                  "    console.log(`[Framework] Request ${pm.info.requestName}: ${req.method} ${req.url}`);",
+                  "    pm.request.url.update(req.url);",
+                  "    pm.request.method = req.method;",
+                  "    if (req.body) {",
+                  "        pm.request.body.update({",
+                  "            mode: 'raw',",
+                  "            raw: JSON.stringify(req.body)",
+                  "        });",
+                  "    }",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Global Utility Injection",
+                  "/**\n * This module provides a standardized way to send HTTP requests within the Postman sandbox.\n */\nclass ApiClient {\n    /**\n     * Sends an HTTP request using Postman pm.sendRequest\n     * @param {Object} options - Request configuration (method, url, headers, body, queryParams)\n     * @param {Function} callback - Postman callback function\n     */\n    send(options, callback) {\n        const { method, url, headers, body, queryParams } = options;\n        \n        const request = {\n            url: this._buildUrl(url, queryParams),\n            method: method || 'GET',\n            header: headers || {},\n            body: body ? {\n                mode: 'raw',\n                raw: typeof body === 'string' ? body : JSON.stringify(body),\n                options: {\n                    raw: {\n                        language: 'json'\n                    }\n                }\n            } : undefined\n        };\n\n        pm.sendRequest(request, callback);\n    }\n\n    _buildUrl(baseUrl, queryParams) {\n        if (!queryParams) return baseUrl;\n        const query = Object.keys(queryParams)\n            .map(key => `${encodeURIComponent(key)}=${encodeURIComponent(queryParams[key])}`)\n            .join('&');\n        return `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}${query}`;\n    }\n}\n\n\n/**\n * Dynamic Request Builder\n * \n * Builds API requests with environment-aware configurations.\n */\nclass RequestBuilder {\n    constructor(baseUrl) {\n        let base = baseUrl || pm.environment.get('baseUrl');\n        this.baseUrl = base.endsWith('/') ? base.slice(0, -1) : base;\n    }\n\n    build(endpoint, method = 'GET', options = {}) {\n        return {\n            method: method,\n            url: `${this.baseUrl}/${endpoint.startsWith('/') ? endpoint.substring(1) : endpoint}`,\n            headers: options.headers || { 'Content-Type': 'application/json' },\n            body: options.body,\n            queryParams: options.queryParams\n        };\n    }\n}\n\n\n/**\n * Generic Response Validator\n * \n * Standardized assertions for API responses.\n */\nclass ResponseValidator {\n    /**\n     * Asserts internal status code\n     * @param {number} code \n     */\n    static assertStatusCode(code) {\n        pm.test(`Status code is ${code}`, () => {\n            pm.response.to.have.status(code);\n        });\n    }\n\n    /**\n     * Asserts field existence in response body\n     * @param {string} fieldName \n     */\n    static assertFieldExists(fieldName) {\n        pm.test(`Response contains field: ${fieldName}`, () => {\n            const jsonData = pm.response.json();\n            pm.expect(jsonData).to.have.property(fieldName);\n        });\n    }\n\n    /**\n     * Asserts field type\n     * @param {string} fieldName \n     * @param {string} type - 'string', 'number', 'boolean', etc.\n     */\n    static assertFieldType(fieldName, type) {\n        pm.test(`${fieldName} should be of type ${type}`, () => {\n            const jsonData = pm.response.json();\n            pm.expect(jsonData[fieldName]).to.be.a(type);\n        });\n    }\n\n    /**\n     * Asserts response body structure matches expected keys\n     * @param {string[]} requiredKeys \n     */\n    static assertStructure(requiredKeys) {\n        pm.test('Response structure is valid', () => {\n            const jsonData = pm.response.json();\n            requiredKeys.forEach(key => {\n                pm.expect(jsonData).to.have.property(key);\n            });\n        });\n    }\n}\n\n\n/**\n * JSON Schema Validation Engine\n * \n * Validates responses against provided JSON schemas.\n */\nclass SchemaValidator {\n    /**\n     * Validates a JSON schema\n     * @param {Object} schema - JSON schema object\n     * @param {Object} data - Optional data to validate (defaults to pm.response.json())\n     */\n    static validate(schema, data) {\n        pm.test('Response schema is valid', () => {\n            const traceData = data || pm.response.json();\n            pm.expect(traceData).to.have.jsonSchema(schema);\n        });\n    }\n}\n\n\n/**\n * Reusable Test Data Factory\n * \n * Generates random, domain-independent test data.\n */\nclass TestDataFactory {\n    generateId() {\n        return Math.floor(Math.random() * 1000000);\n    }\n\n    generateUsername(prefix = 'user') {\n        const timestamp = new Date().getTime();\n        return `${prefix}_${timestamp}`;\n    }\n\n    generateEmail(domain = 'test.com') {\n        const randomStr = Math.random().toString(36).substring(7);\n        return `tester_${randomStr}@${domain}`;\n    }\n\n    generateString(length = 10) {\n        let result = '';\n        const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';\n        for (let i = 0; i < length; i++) {\n            result += characters.charAt(Math.floor(Math.random() * characters.length));\n        }\n        return result;\n    }\n}\n",
+                  "const validator = ResponseValidator;",
+                  "",
+                  "console.log(`[Framework] Response ${pm.info.requestName}: ${pm.response.code} ${pm.response.status}`);",
+                  "validator.assertStatusCode(200);",
+                  "pm.test(\"Status is updated to sold\", () => {",
+                  "    pm.expect(pm.response.json().status).to.eql(\"sold\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": ""
+            },
+            "url": {
+              "raw": "{{baseUrl}}",
+              "host": [
+                "{{baseUrl}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "getMissingPet",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Global Utility Injection",
+                  "/**\n * This module provides a standardized way to send HTTP requests within the Postman sandbox.\n */\nclass ApiClient {\n    /**\n     * Sends an HTTP request using Postman pm.sendRequest\n     * @param {Object} options - Request configuration (method, url, headers, body, queryParams)\n     * @param {Function} callback - Postman callback function\n     */\n    send(options, callback) {\n        const { method, url, headers, body, queryParams } = options;\n        \n        const request = {\n            url: this._buildUrl(url, queryParams),\n            method: method || 'GET',\n            header: headers || {},\n            body: body ? {\n                mode: 'raw',\n                raw: typeof body === 'string' ? body : JSON.stringify(body),\n                options: {\n                    raw: {\n                        language: 'json'\n                    }\n                }\n            } : undefined\n        };\n\n        pm.sendRequest(request, callback);\n    }\n\n    _buildUrl(baseUrl, queryParams) {\n        if (!queryParams) return baseUrl;\n        const query = Object.keys(queryParams)\n            .map(key => `${encodeURIComponent(key)}=${encodeURIComponent(queryParams[key])}`)\n            .join('&');\n        return `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}${query}`;\n    }\n}\n\n\n/**\n * Dynamic Request Builder\n * \n * Builds API requests with environment-aware configurations.\n */\nclass RequestBuilder {\n    constructor(baseUrl) {\n        let base = baseUrl || pm.environment.get('baseUrl');\n        this.baseUrl = base.endsWith('/') ? base.slice(0, -1) : base;\n    }\n\n    build(endpoint, method = 'GET', options = {}) {\n        return {\n            method: method,\n            url: `${this.baseUrl}/${endpoint.startsWith('/') ? endpoint.substring(1) : endpoint}`,\n            headers: options.headers || { 'Content-Type': 'application/json' },\n            body: options.body,\n            queryParams: options.queryParams\n        };\n    }\n}\n\n\n/**\n * Generic Response Validator\n * \n * Standardized assertions for API responses.\n */\nclass ResponseValidator {\n    /**\n     * Asserts internal status code\n     * @param {number} code \n     */\n    static assertStatusCode(code) {\n        pm.test(`Status code is ${code}`, () => {\n            pm.response.to.have.status(code);\n        });\n    }\n\n    /**\n     * Asserts field existence in response body\n     * @param {string} fieldName \n     */\n    static assertFieldExists(fieldName) {\n        pm.test(`Response contains field: ${fieldName}`, () => {\n            const jsonData = pm.response.json();\n            pm.expect(jsonData).to.have.property(fieldName);\n        });\n    }\n\n    /**\n     * Asserts field type\n     * @param {string} fieldName \n     * @param {string} type - 'string', 'number', 'boolean', etc.\n     */\n    static assertFieldType(fieldName, type) {\n        pm.test(`${fieldName} should be of type ${type}`, () => {\n            const jsonData = pm.response.json();\n            pm.expect(jsonData[fieldName]).to.be.a(type);\n        });\n    }\n\n    /**\n     * Asserts response body structure matches expected keys\n     * @param {string[]} requiredKeys \n     */\n    static assertStructure(requiredKeys) {\n        pm.test('Response structure is valid', () => {\n            const jsonData = pm.response.json();\n            requiredKeys.forEach(key => {\n                pm.expect(jsonData).to.have.property(key);\n            });\n        });\n    }\n}\n\n\n/**\n * JSON Schema Validation Engine\n * \n * Validates responses against provided JSON schemas.\n */\nclass SchemaValidator {\n    /**\n     * Validates a JSON schema\n     * @param {Object} schema - JSON schema object\n     * @param {Object} data - Optional data to validate (defaults to pm.response.json())\n     */\n    static validate(schema, data) {\n        pm.test('Response schema is valid', () => {\n            const traceData = data || pm.response.json();\n            pm.expect(traceData).to.have.jsonSchema(schema);\n        });\n    }\n}\n\n\n/**\n * Reusable Test Data Factory\n * \n * Generates random, domain-independent test data.\n */\nclass TestDataFactory {\n    generateId() {\n        return Math.floor(Math.random() * 1000000);\n    }\n\n    generateUsername(prefix = 'user') {\n        const timestamp = new Date().getTime();\n        return `${prefix}_${timestamp}`;\n    }\n\n    generateEmail(domain = 'test.com') {\n        const randomStr = Math.random().toString(36).substring(7);\n        return `tester_${randomStr}@${domain}`;\n    }\n\n    generateString(length = 10) {\n        let result = '';\n        const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';\n        for (let i = 0; i < length; i++) {\n            result += characters.charAt(Math.floor(Math.random() * characters.length));\n        }\n        return result;\n    }\n}\n",
+                  "const factory = new TestDataFactory();",
+                  "const builder = new RequestBuilder();",
+                  "",
+                  "/**",
+                  " * TC-PET-05: [NEG] Get Missing Pet",
+                  " */",
+                  "",
+                  "// Pre-request Script logic",
+                  "const req = builder.build('/pet/-1', 'GET');",
+                  "",
+                  "// Apply request overrides",
+                  "if (typeof req !== 'undefined') {",
+                  "    console.log(`[Framework] Request ${pm.info.requestName}: ${req.method} ${req.url}`);",
+                  "    pm.request.url.update(req.url);",
+                  "    pm.request.method = req.method;",
+                  "    if (req.body) {",
+                  "        pm.request.body.update({",
+                  "            mode: 'raw',",
+                  "            raw: JSON.stringify(req.body)",
+                  "        });",
+                  "    }",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Global Utility Injection",
+                  "/**\n * This module provides a standardized way to send HTTP requests within the Postman sandbox.\n */\nclass ApiClient {\n    /**\n     * Sends an HTTP request using Postman pm.sendRequest\n     * @param {Object} options - Request configuration (method, url, headers, body, queryParams)\n     * @param {Function} callback - Postman callback function\n     */\n    send(options, callback) {\n        const { method, url, headers, body, queryParams } = options;\n        \n        const request = {\n            url: this._buildUrl(url, queryParams),\n            method: method || 'GET',\n            header: headers || {},\n            body: body ? {\n                mode: 'raw',\n                raw: typeof body === 'string' ? body : JSON.stringify(body),\n                options: {\n                    raw: {\n                        language: 'json'\n                    }\n                }\n            } : undefined\n        };\n\n        pm.sendRequest(request, callback);\n    }\n\n    _buildUrl(baseUrl, queryParams) {\n        if (!queryParams) return baseUrl;\n        const query = Object.keys(queryParams)\n            .map(key => `${encodeURIComponent(key)}=${encodeURIComponent(queryParams[key])}`)\n            .join('&');\n        return `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}${query}`;\n    }\n}\n\n\n/**\n * Dynamic Request Builder\n * \n * Builds API requests with environment-aware configurations.\n */\nclass RequestBuilder {\n    constructor(baseUrl) {\n        let base = baseUrl || pm.environment.get('baseUrl');\n        this.baseUrl = base.endsWith('/') ? base.slice(0, -1) : base;\n    }\n\n    build(endpoint, method = 'GET', options = {}) {\n        return {\n            method: method,\n            url: `${this.baseUrl}/${endpoint.startsWith('/') ? endpoint.substring(1) : endpoint}`,\n            headers: options.headers || { 'Content-Type': 'application/json' },\n            body: options.body,\n            queryParams: options.queryParams\n        };\n    }\n}\n\n\n/**\n * Generic Response Validator\n * \n * Standardized assertions for API responses.\n */\nclass ResponseValidator {\n    /**\n     * Asserts internal status code\n     * @param {number} code \n     */\n    static assertStatusCode(code) {\n        pm.test(`Status code is ${code}`, () => {\n            pm.response.to.have.status(code);\n        });\n    }\n\n    /**\n     * Asserts field existence in response body\n     * @param {string} fieldName \n     */\n    static assertFieldExists(fieldName) {\n        pm.test(`Response contains field: ${fieldName}`, () => {\n            const jsonData = pm.response.json();\n            pm.expect(jsonData).to.have.property(fieldName);\n        });\n    }\n\n    /**\n     * Asserts field type\n     * @param {string} fieldName \n     * @param {string} type - 'string', 'number', 'boolean', etc.\n     */\n    static assertFieldType(fieldName, type) {\n        pm.test(`${fieldName} should be of type ${type}`, () => {\n            const jsonData = pm.response.json();\n            pm.expect(jsonData[fieldName]).to.be.a(type);\n        });\n    }\n\n    /**\n     * Asserts response body structure matches expected keys\n     * @param {string[]} requiredKeys \n     */\n    static assertStructure(requiredKeys) {\n        pm.test('Response structure is valid', () => {\n            const jsonData = pm.response.json();\n            requiredKeys.forEach(key => {\n                pm.expect(jsonData).to.have.property(key);\n            });\n        });\n    }\n}\n\n\n/**\n * JSON Schema Validation Engine\n * \n * Validates responses against provided JSON schemas.\n */\nclass SchemaValidator {\n    /**\n     * Validates a JSON schema\n     * @param {Object} schema - JSON schema object\n     * @param {Object} data - Optional data to validate (defaults to pm.response.json())\n     */\n    static validate(schema, data) {\n        pm.test('Response schema is valid', () => {\n            const traceData = data || pm.response.json();\n            pm.expect(traceData).to.have.jsonSchema(schema);\n        });\n    }\n}\n\n\n/**\n * Reusable Test Data Factory\n * \n * Generates random, domain-independent test data.\n */\nclass TestDataFactory {\n    generateId() {\n        return Math.floor(Math.random() * 1000000);\n    }\n\n    generateUsername(prefix = 'user') {\n        const timestamp = new Date().getTime();\n        return `${prefix}_${timestamp}`;\n    }\n\n    generateEmail(domain = 'test.com') {\n        const randomStr = Math.random().toString(36).substring(7);\n        return `tester_${randomStr}@${domain}`;\n    }\n\n    generateString(length = 10) {\n        let result = '';\n        const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';\n        for (let i = 0; i < length; i++) {\n            result += characters.charAt(Math.floor(Math.random() * characters.length));\n        }\n        return result;\n    }\n}\n",
+                  "const validator = ResponseValidator;",
+                  "",
+                  "console.log(`[Framework] Response ${pm.info.requestName}: ${pm.response.code} ${pm.response.status}`);",
+                  "validator.assertStatusCode(404);",
+                  "pm.test(\"Error message is 'Pet not found'\", () => {",
+                  "    pm.expect(pm.response.json().message).to.eql(\"Pet not found\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": ""
+            },
+            "url": {
+              "raw": "{{baseUrl}}",
+              "host": [
+                "{{baseUrl}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "deletePet",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Global Utility Injection",
+                  "/**\n * This module provides a standardized way to send HTTP requests within the Postman sandbox.\n */\nclass ApiClient {\n    /**\n     * Sends an HTTP request using Postman pm.sendRequest\n     * @param {Object} options - Request configuration (method, url, headers, body, queryParams)\n     * @param {Function} callback - Postman callback function\n     */\n    send(options, callback) {\n        const { method, url, headers, body, queryParams } = options;\n        \n        const request = {\n            url: this._buildUrl(url, queryParams),\n            method: method || 'GET',\n            header: headers || {},\n            body: body ? {\n                mode: 'raw',\n                raw: typeof body === 'string' ? body : JSON.stringify(body),\n                options: {\n                    raw: {\n                        language: 'json'\n                    }\n                }\n            } : undefined\n        };\n\n        pm.sendRequest(request, callback);\n    }\n\n    _buildUrl(baseUrl, queryParams) {\n        if (!queryParams) return baseUrl;\n        const query = Object.keys(queryParams)\n            .map(key => `${encodeURIComponent(key)}=${encodeURIComponent(queryParams[key])}`)\n            .join('&');\n        return `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}${query}`;\n    }\n}\n\n\n/**\n * Dynamic Request Builder\n * \n * Builds API requests with environment-aware configurations.\n */\nclass RequestBuilder {\n    constructor(baseUrl) {\n        let base = baseUrl || pm.environment.get('baseUrl');\n        this.baseUrl = base.endsWith('/') ? base.slice(0, -1) : base;\n    }\n\n    build(endpoint, method = 'GET', options = {}) {\n        return {\n            method: method,\n            url: `${this.baseUrl}/${endpoint.startsWith('/') ? endpoint.substring(1) : endpoint}`,\n            headers: options.headers || { 'Content-Type': 'application/json' },\n            body: options.body,\n            queryParams: options.queryParams\n        };\n    }\n}\n\n\n/**\n * Generic Response Validator\n * \n * Standardized assertions for API responses.\n */\nclass ResponseValidator {\n    /**\n     * Asserts internal status code\n     * @param {number} code \n     */\n    static assertStatusCode(code) {\n        pm.test(`Status code is ${code}`, () => {\n            pm.response.to.have.status(code);\n        });\n    }\n\n    /**\n     * Asserts field existence in response body\n     * @param {string} fieldName \n     */\n    static assertFieldExists(fieldName) {\n        pm.test(`Response contains field: ${fieldName}`, () => {\n            const jsonData = pm.response.json();\n            pm.expect(jsonData).to.have.property(fieldName);\n        });\n    }\n\n    /**\n     * Asserts field type\n     * @param {string} fieldName \n     * @param {string} type - 'string', 'number', 'boolean', etc.\n     */\n    static assertFieldType(fieldName, type) {\n        pm.test(`${fieldName} should be of type ${type}`, () => {\n            const jsonData = pm.response.json();\n            pm.expect(jsonData[fieldName]).to.be.a(type);\n        });\n    }\n\n    /**\n     * Asserts response body structure matches expected keys\n     * @param {string[]} requiredKeys \n     */\n    static assertStructure(requiredKeys) {\n        pm.test('Response structure is valid', () => {\n            const jsonData = pm.response.json();\n            requiredKeys.forEach(key => {\n                pm.expect(jsonData).to.have.property(key);\n            });\n        });\n    }\n}\n\n\n/**\n * JSON Schema Validation Engine\n * \n * Validates responses against provided JSON schemas.\n */\nclass SchemaValidator {\n    /**\n     * Validates a JSON schema\n     * @param {Object} schema - JSON schema object\n     * @param {Object} data - Optional data to validate (defaults to pm.response.json())\n     */\n    static validate(schema, data) {\n        pm.test('Response schema is valid', () => {\n            const traceData = data || pm.response.json();\n            pm.expect(traceData).to.have.jsonSchema(schema);\n        });\n    }\n}\n\n\n/**\n * Reusable Test Data Factory\n * \n * Generates random, domain-independent test data.\n */\nclass TestDataFactory {\n    generateId() {\n        return Math.floor(Math.random() * 1000000);\n    }\n\n    generateUsername(prefix = 'user') {\n        const timestamp = new Date().getTime();\n        return `${prefix}_${timestamp}`;\n    }\n\n    generateEmail(domain = 'test.com') {\n        const randomStr = Math.random().toString(36).substring(7);\n        return `tester_${randomStr}@${domain}`;\n    }\n\n    generateString(length = 10) {\n        let result = '';\n        const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';\n        for (let i = 0; i < length; i++) {\n            result += characters.charAt(Math.floor(Math.random() * characters.length));\n        }\n        return result;\n    }\n}\n",
+                  "const factory = new TestDataFactory();",
+                  "const builder = new RequestBuilder();",
+                  "",
+                  "/**",
+                  " * TC-PET-04: Delete Pet (Happy Path)",
+                  " */",
+                  "",
+                  "// Pre-request Script logic",
+                  "",
+                  "const petId = pm.environment.get('petId');",
+                  "",
+                  "const req = builder.build(`/pet/${petId}`, 'DELETE');",
+                  "",
+                  "pm.variables.set('reqMethod', req.method);",
+                  "pm.variables.set('reqUrl', req.url);",
+                  "pm.variables.set('reqBody', null);",
+                  "",
+                  "// Apply request overrides",
+                  "if (typeof req !== 'undefined') {",
+                  "    console.log(`[Framework] Request ${pm.info.requestName}: ${req.method} ${req.url}`);",
+                  "    pm.request.url.update(req.url);",
+                  "    pm.request.method = req.method;",
+                  "    if (req.body) {",
+                  "        pm.request.body.update({",
+                  "            mode: 'raw',",
+                  "            raw: JSON.stringify(req.body)",
+                  "        });",
+                  "    }",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Global Utility Injection",
+                  "/**\n * This module provides a standardized way to send HTTP requests within the Postman sandbox.\n */\nclass ApiClient {\n    /**\n     * Sends an HTTP request using Postman pm.sendRequest\n     * @param {Object} options - Request configuration (method, url, headers, body, queryParams)\n     * @param {Function} callback - Postman callback function\n     */\n    send(options, callback) {\n        const { method, url, headers, body, queryParams } = options;\n        \n        const request = {\n            url: this._buildUrl(url, queryParams),\n            method: method || 'GET',\n            header: headers || {},\n            body: body ? {\n                mode: 'raw',\n                raw: typeof body === 'string' ? body : JSON.stringify(body),\n                options: {\n                    raw: {\n                        language: 'json'\n                    }\n                }\n            } : undefined\n        };\n\n        pm.sendRequest(request, callback);\n    }\n\n    _buildUrl(baseUrl, queryParams) {\n        if (!queryParams) return baseUrl;\n        const query = Object.keys(queryParams)\n            .map(key => `${encodeURIComponent(key)}=${encodeURIComponent(queryParams[key])}`)\n            .join('&');\n        return `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}${query}`;\n    }\n}\n\n\n/**\n * Dynamic Request Builder\n * \n * Builds API requests with environment-aware configurations.\n */\nclass RequestBuilder {\n    constructor(baseUrl) {\n        let base = baseUrl || pm.environment.get('baseUrl');\n        this.baseUrl = base.endsWith('/') ? base.slice(0, -1) : base;\n    }\n\n    build(endpoint, method = 'GET', options = {}) {\n        return {\n            method: method,\n            url: `${this.baseUrl}/${endpoint.startsWith('/') ? endpoint.substring(1) : endpoint}`,\n            headers: options.headers || { 'Content-Type': 'application/json' },\n            body: options.body,\n            queryParams: options.queryParams\n        };\n    }\n}\n\n\n/**\n * Generic Response Validator\n * \n * Standardized assertions for API responses.\n */\nclass ResponseValidator {\n    /**\n     * Asserts internal status code\n     * @param {number} code \n     */\n    static assertStatusCode(code) {\n        pm.test(`Status code is ${code}`, () => {\n            pm.response.to.have.status(code);\n        });\n    }\n\n    /**\n     * Asserts field existence in response body\n     * @param {string} fieldName \n     */\n    static assertFieldExists(fieldName) {\n        pm.test(`Response contains field: ${fieldName}`, () => {\n            const jsonData = pm.response.json();\n            pm.expect(jsonData).to.have.property(fieldName);\n        });\n    }\n\n    /**\n     * Asserts field type\n     * @param {string} fieldName \n     * @param {string} type - 'string', 'number', 'boolean', etc.\n     */\n    static assertFieldType(fieldName, type) {\n        pm.test(`${fieldName} should be of type ${type}`, () => {\n            const jsonData = pm.response.json();\n            pm.expect(jsonData[fieldName]).to.be.a(type);\n        });\n    }\n\n    /**\n     * Asserts response body structure matches expected keys\n     * @param {string[]} requiredKeys \n     */\n    static assertStructure(requiredKeys) {\n        pm.test('Response structure is valid', () => {\n            const jsonData = pm.response.json();\n            requiredKeys.forEach(key => {\n                pm.expect(jsonData).to.have.property(key);\n            });\n        });\n    }\n}\n\n\n/**\n * JSON Schema Validation Engine\n * \n * Validates responses against provided JSON schemas.\n */\nclass SchemaValidator {\n    /**\n     * Validates a JSON schema\n     * @param {Object} schema - JSON schema object\n     * @param {Object} data - Optional data to validate (defaults to pm.response.json())\n     */\n    static validate(schema, data) {\n        pm.test('Response schema is valid', () => {\n            const traceData = data || pm.response.json();\n            pm.expect(traceData).to.have.jsonSchema(schema);\n        });\n    }\n}\n\n\n/**\n * Reusable Test Data Factory\n * \n * Generates random, domain-independent test data.\n */\nclass TestDataFactory {\n    generateId() {\n        return Math.floor(Math.random() * 1000000);\n    }\n\n    generateUsername(prefix = 'user') {\n        const timestamp = new Date().getTime();\n        return `${prefix}_${timestamp}`;\n    }\n\n    generateEmail(domain = 'test.com') {\n        const randomStr = Math.random().toString(36).substring(7);\n        return `tester_${randomStr}@${domain}`;\n    }\n\n    generateString(length = 10) {\n        let result = '';\n        const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';\n        for (let i = 0; i < length; i++) {\n            result += characters.charAt(Math.floor(Math.random() * characters.length));\n        }\n        return result;\n    }\n}\n",
+                  "const validator = ResponseValidator;",
+                  "",
+                  "console.log(`[Framework] Response ${pm.info.requestName}: ${pm.response.code} ${pm.response.status}`);",
+                  "validator.assertStatusCode(200);",
+                  "pm.environment.unset('petId');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": ""
+            },
+            "url": {
+              "raw": "{{baseUrl}}",
+              "host": [
+                "{{baseUrl}}"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Store",
+      "item": [
+        {
+          "name": "createOrder",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Global Utility Injection",
+                  "/**\n * This module provides a standardized way to send HTTP requests within the Postman sandbox.\n */\nclass ApiClient {\n    /**\n     * Sends an HTTP request using Postman pm.sendRequest\n     * @param {Object} options - Request configuration (method, url, headers, body, queryParams)\n     * @param {Function} callback - Postman callback function\n     */\n    send(options, callback) {\n        const { method, url, headers, body, queryParams } = options;\n        \n        const request = {\n            url: this._buildUrl(url, queryParams),\n            method: method || 'GET',\n            header: headers || {},\n            body: body ? {\n                mode: 'raw',\n                raw: typeof body === 'string' ? body : JSON.stringify(body),\n                options: {\n                    raw: {\n                        language: 'json'\n                    }\n                }\n            } : undefined\n        };\n\n        pm.sendRequest(request, callback);\n    }\n\n    _buildUrl(baseUrl, queryParams) {\n        if (!queryParams) return baseUrl;\n        const query = Object.keys(queryParams)\n            .map(key => `${encodeURIComponent(key)}=${encodeURIComponent(queryParams[key])}`)\n            .join('&');\n        return `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}${query}`;\n    }\n}\n\n\n/**\n * Dynamic Request Builder\n * \n * Builds API requests with environment-aware configurations.\n */\nclass RequestBuilder {\n    constructor(baseUrl) {\n        let base = baseUrl || pm.environment.get('baseUrl');\n        this.baseUrl = base.endsWith('/') ? base.slice(0, -1) : base;\n    }\n\n    build(endpoint, method = 'GET', options = {}) {\n        return {\n            method: method,\n            url: `${this.baseUrl}/${endpoint.startsWith('/') ? endpoint.substring(1) : endpoint}`,\n            headers: options.headers || { 'Content-Type': 'application/json' },\n            body: options.body,\n            queryParams: options.queryParams\n        };\n    }\n}\n\n\n/**\n * Generic Response Validator\n * \n * Standardized assertions for API responses.\n */\nclass ResponseValidator {\n    /**\n     * Asserts internal status code\n     * @param {number} code \n     */\n    static assertStatusCode(code) {\n        pm.test(`Status code is ${code}`, () => {\n            pm.response.to.have.status(code);\n        });\n    }\n\n    /**\n     * Asserts field existence in response body\n     * @param {string} fieldName \n     */\n    static assertFieldExists(fieldName) {\n        pm.test(`Response contains field: ${fieldName}`, () => {\n            const jsonData = pm.response.json();\n            pm.expect(jsonData).to.have.property(fieldName);\n        });\n    }\n\n    /**\n     * Asserts field type\n     * @param {string} fieldName \n     * @param {string} type - 'string', 'number', 'boolean', etc.\n     */\n    static assertFieldType(fieldName, type) {\n        pm.test(`${fieldName} should be of type ${type}`, () => {\n            const jsonData = pm.response.json();\n            pm.expect(jsonData[fieldName]).to.be.a(type);\n        });\n    }\n\n    /**\n     * Asserts response body structure matches expected keys\n     * @param {string[]} requiredKeys \n     */\n    static assertStructure(requiredKeys) {\n        pm.test('Response structure is valid', () => {\n            const jsonData = pm.response.json();\n            requiredKeys.forEach(key => {\n                pm.expect(jsonData).to.have.property(key);\n            });\n        });\n    }\n}\n\n\n/**\n * JSON Schema Validation Engine\n * \n * Validates responses against provided JSON schemas.\n */\nclass SchemaValidator {\n    /**\n     * Validates a JSON schema\n     * @param {Object} schema - JSON schema object\n     * @param {Object} data - Optional data to validate (defaults to pm.response.json())\n     */\n    static validate(schema, data) {\n        pm.test('Response schema is valid', () => {\n            const traceData = data || pm.response.json();\n            pm.expect(traceData).to.have.jsonSchema(schema);\n        });\n    }\n}\n\n\n/**\n * Reusable Test Data Factory\n * \n * Generates random, domain-independent test data.\n */\nclass TestDataFactory {\n    generateId() {\n        return Math.floor(Math.random() * 1000000);\n    }\n\n    generateUsername(prefix = 'user') {\n        const timestamp = new Date().getTime();\n        return `${prefix}_${timestamp}`;\n    }\n\n    generateEmail(domain = 'test.com') {\n        const randomStr = Math.random().toString(36).substring(7);\n        return `tester_${randomStr}@${domain}`;\n    }\n\n    generateString(length = 10) {\n        let result = '';\n        const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';\n        for (let i = 0; i < length; i++) {\n            result += characters.charAt(Math.floor(Math.random() * characters.length));\n        }\n        return result;\n    }\n}\n",
+                  "const factory = new TestDataFactory();",
+                  "const builder = new RequestBuilder();",
+                  "",
+                  "/**",
+                  " * TC-STORE-01: Create Order (Happy Path)",
+                  " */",
+                  "",
+                  "// Pre-request Script logic",
+                  "",
+                  "",
+                  "",
+                  "const orderData = {",
+                  "    id: factory.generateId(),",
+                  "    petId: parseInt(pm.environment.get('petId')) || 1,",
+                  "    quantity: 1,",
+                  "    shipDate: new Date().toISOString(),",
+                  "    status: \"placed\",",
+                  "    complete: false",
+                  "};",
+                  "",
+                  "const req = builder.build('/store/order', 'POST', { body: orderData });",
+                  "",
+                  "pm.variables.set('reqMethod', req.method);",
+                  "pm.variables.set('reqUrl', req.url);",
+                  "pm.variables.set('reqBody', JSON.stringify(req.body));",
+                  "",
+                  "// Apply request overrides",
+                  "if (typeof req !== 'undefined') {",
+                  "    console.log(`[Framework] Request ${pm.info.requestName}: ${req.method} ${req.url}`);",
+                  "    pm.request.url.update(req.url);",
+                  "    pm.request.method = req.method;",
+                  "    if (req.body) {",
+                  "        pm.request.body.update({",
+                  "            mode: 'raw',",
+                  "            raw: JSON.stringify(req.body)",
+                  "        });",
+                  "    }",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Global Utility Injection",
+                  "/**\n * This module provides a standardized way to send HTTP requests within the Postman sandbox.\n */\nclass ApiClient {\n    /**\n     * Sends an HTTP request using Postman pm.sendRequest\n     * @param {Object} options - Request configuration (method, url, headers, body, queryParams)\n     * @param {Function} callback - Postman callback function\n     */\n    send(options, callback) {\n        const { method, url, headers, body, queryParams } = options;\n        \n        const request = {\n            url: this._buildUrl(url, queryParams),\n            method: method || 'GET',\n            header: headers || {},\n            body: body ? {\n                mode: 'raw',\n                raw: typeof body === 'string' ? body : JSON.stringify(body),\n                options: {\n                    raw: {\n                        language: 'json'\n                    }\n                }\n            } : undefined\n        };\n\n        pm.sendRequest(request, callback);\n    }\n\n    _buildUrl(baseUrl, queryParams) {\n        if (!queryParams) return baseUrl;\n        const query = Object.keys(queryParams)\n            .map(key => `${encodeURIComponent(key)}=${encodeURIComponent(queryParams[key])}`)\n            .join('&');\n        return `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}${query}`;\n    }\n}\n\n\n/**\n * Dynamic Request Builder\n * \n * Builds API requests with environment-aware configurations.\n */\nclass RequestBuilder {\n    constructor(baseUrl) {\n        let base = baseUrl || pm.environment.get('baseUrl');\n        this.baseUrl = base.endsWith('/') ? base.slice(0, -1) : base;\n    }\n\n    build(endpoint, method = 'GET', options = {}) {\n        return {\n            method: method,\n            url: `${this.baseUrl}/${endpoint.startsWith('/') ? endpoint.substring(1) : endpoint}`,\n            headers: options.headers || { 'Content-Type': 'application/json' },\n            body: options.body,\n            queryParams: options.queryParams\n        };\n    }\n}\n\n\n/**\n * Generic Response Validator\n * \n * Standardized assertions for API responses.\n */\nclass ResponseValidator {\n    /**\n     * Asserts internal status code\n     * @param {number} code \n     */\n    static assertStatusCode(code) {\n        pm.test(`Status code is ${code}`, () => {\n            pm.response.to.have.status(code);\n        });\n    }\n\n    /**\n     * Asserts field existence in response body\n     * @param {string} fieldName \n     */\n    static assertFieldExists(fieldName) {\n        pm.test(`Response contains field: ${fieldName}`, () => {\n            const jsonData = pm.response.json();\n            pm.expect(jsonData).to.have.property(fieldName);\n        });\n    }\n\n    /**\n     * Asserts field type\n     * @param {string} fieldName \n     * @param {string} type - 'string', 'number', 'boolean', etc.\n     */\n    static assertFieldType(fieldName, type) {\n        pm.test(`${fieldName} should be of type ${type}`, () => {\n            const jsonData = pm.response.json();\n            pm.expect(jsonData[fieldName]).to.be.a(type);\n        });\n    }\n\n    /**\n     * Asserts response body structure matches expected keys\n     * @param {string[]} requiredKeys \n     */\n    static assertStructure(requiredKeys) {\n        pm.test('Response structure is valid', () => {\n            const jsonData = pm.response.json();\n            requiredKeys.forEach(key => {\n                pm.expect(jsonData).to.have.property(key);\n            });\n        });\n    }\n}\n\n\n/**\n * JSON Schema Validation Engine\n * \n * Validates responses against provided JSON schemas.\n */\nclass SchemaValidator {\n    /**\n     * Validates a JSON schema\n     * @param {Object} schema - JSON schema object\n     * @param {Object} data - Optional data to validate (defaults to pm.response.json())\n     */\n    static validate(schema, data) {\n        pm.test('Response schema is valid', () => {\n            const traceData = data || pm.response.json();\n            pm.expect(traceData).to.have.jsonSchema(schema);\n        });\n    }\n}\n\n\n/**\n * Reusable Test Data Factory\n * \n * Generates random, domain-independent test data.\n */\nclass TestDataFactory {\n    generateId() {\n        return Math.floor(Math.random() * 1000000);\n    }\n\n    generateUsername(prefix = 'user') {\n        const timestamp = new Date().getTime();\n        return `${prefix}_${timestamp}`;\n    }\n\n    generateEmail(domain = 'test.com') {\n        const randomStr = Math.random().toString(36).substring(7);\n        return `tester_${randomStr}@${domain}`;\n    }\n\n    generateString(length = 10) {\n        let result = '';\n        const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';\n        for (let i = 0; i < length; i++) {\n            result += characters.charAt(Math.floor(Math.random() * characters.length));\n        }\n        return result;\n    }\n}\n",
+                  "const validator = ResponseValidator;",
+                  "",
+                  "console.log(`[Framework] Response ${pm.info.requestName}: ${pm.response.code} ${pm.response.status}`);",
+                  "validator.assertStatusCode(200);",
+                  "validator.assertFieldExists('status');",
+                  "pm.environment.set('orderId', pm.response.json().id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": ""
+            },
+            "url": {
+              "raw": "{{baseUrl}}",
+              "host": [
+                "{{baseUrl}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "createOrderQuantityZero",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Global Utility Injection",
+                  "/**\n * This module provides a standardized way to send HTTP requests within the Postman sandbox.\n */\nclass ApiClient {\n    /**\n     * Sends an HTTP request using Postman pm.sendRequest\n     * @param {Object} options - Request configuration (method, url, headers, body, queryParams)\n     * @param {Function} callback - Postman callback function\n     */\n    send(options, callback) {\n        const { method, url, headers, body, queryParams } = options;\n        \n        const request = {\n            url: this._buildUrl(url, queryParams),\n            method: method || 'GET',\n            header: headers || {},\n            body: body ? {\n                mode: 'raw',\n                raw: typeof body === 'string' ? body : JSON.stringify(body),\n                options: {\n                    raw: {\n                        language: 'json'\n                    }\n                }\n            } : undefined\n        };\n\n        pm.sendRequest(request, callback);\n    }\n\n    _buildUrl(baseUrl, queryParams) {\n        if (!queryParams) return baseUrl;\n        const query = Object.keys(queryParams)\n            .map(key => `${encodeURIComponent(key)}=${encodeURIComponent(queryParams[key])}`)\n            .join('&');\n        return `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}${query}`;\n    }\n}\n\n\n/**\n * Dynamic Request Builder\n * \n * Builds API requests with environment-aware configurations.\n */\nclass RequestBuilder {\n    constructor(baseUrl) {\n        let base = baseUrl || pm.environment.get('baseUrl');\n        this.baseUrl = base.endsWith('/') ? base.slice(0, -1) : base;\n    }\n\n    build(endpoint, method = 'GET', options = {}) {\n        return {\n            method: method,\n            url: `${this.baseUrl}/${endpoint.startsWith('/') ? endpoint.substring(1) : endpoint}`,\n            headers: options.headers || { 'Content-Type': 'application/json' },\n            body: options.body,\n            queryParams: options.queryParams\n        };\n    }\n}\n\n\n/**\n * Generic Response Validator\n * \n * Standardized assertions for API responses.\n */\nclass ResponseValidator {\n    /**\n     * Asserts internal status code\n     * @param {number} code \n     */\n    static assertStatusCode(code) {\n        pm.test(`Status code is ${code}`, () => {\n            pm.response.to.have.status(code);\n        });\n    }\n\n    /**\n     * Asserts field existence in response body\n     * @param {string} fieldName \n     */\n    static assertFieldExists(fieldName) {\n        pm.test(`Response contains field: ${fieldName}`, () => {\n            const jsonData = pm.response.json();\n            pm.expect(jsonData).to.have.property(fieldName);\n        });\n    }\n\n    /**\n     * Asserts field type\n     * @param {string} fieldName \n     * @param {string} type - 'string', 'number', 'boolean', etc.\n     */\n    static assertFieldType(fieldName, type) {\n        pm.test(`${fieldName} should be of type ${type}`, () => {\n            const jsonData = pm.response.json();\n            pm.expect(jsonData[fieldName]).to.be.a(type);\n        });\n    }\n\n    /**\n     * Asserts response body structure matches expected keys\n     * @param {string[]} requiredKeys \n     */\n    static assertStructure(requiredKeys) {\n        pm.test('Response structure is valid', () => {\n            const jsonData = pm.response.json();\n            requiredKeys.forEach(key => {\n                pm.expect(jsonData).to.have.property(key);\n            });\n        });\n    }\n}\n\n\n/**\n * JSON Schema Validation Engine\n * \n * Validates responses against provided JSON schemas.\n */\nclass SchemaValidator {\n    /**\n     * Validates a JSON schema\n     * @param {Object} schema - JSON schema object\n     * @param {Object} data - Optional data to validate (defaults to pm.response.json())\n     */\n    static validate(schema, data) {\n        pm.test('Response schema is valid', () => {\n            const traceData = data || pm.response.json();\n            pm.expect(traceData).to.have.jsonSchema(schema);\n        });\n    }\n}\n\n\n/**\n * Reusable Test Data Factory\n * \n * Generates random, domain-independent test data.\n */\nclass TestDataFactory {\n    generateId() {\n        return Math.floor(Math.random() * 1000000);\n    }\n\n    generateUsername(prefix = 'user') {\n        const timestamp = new Date().getTime();\n        return `${prefix}_${timestamp}`;\n    }\n\n    generateEmail(domain = 'test.com') {\n        const randomStr = Math.random().toString(36).substring(7);\n        return `tester_${randomStr}@${domain}`;\n    }\n\n    generateString(length = 10) {\n        let result = '';\n        const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';\n        for (let i = 0; i < length; i++) {\n            result += characters.charAt(Math.floor(Math.random() * characters.length));\n        }\n        return result;\n    }\n}\n",
+                  "const factory = new TestDataFactory();",
+                  "const builder = new RequestBuilder();",
+                  "",
+                  "/**",
+                  " * TC-STORE-04: [BOUND] Create Order Quantity 0",
+                  " */",
+                  "",
+                  "// Pre-request Script logic",
+                  "const orderData = {",
+                  "    id: factory.generateId(),",
+                  "    petId: 1,",
+                  "    quantity: 0,",
+                  "    shipDate: new Date().toISOString(),",
+                  "    status: \"placed\",",
+                  "    complete: false",
+                  "};",
+                  "",
+                  "const req = builder.build('/store/order', 'POST', { body: orderData });",
+                  "",
+                  "// Apply request overrides",
+                  "if (typeof req !== 'undefined') {",
+                  "    console.log(`[Framework] Request ${pm.info.requestName}: ${req.method} ${req.url}`);",
+                  "    pm.request.url.update(req.url);",
+                  "    pm.request.method = req.method;",
+                  "    if (req.body) {",
+                  "        pm.request.body.update({",
+                  "            mode: 'raw',",
+                  "            raw: JSON.stringify(req.body)",
+                  "        });",
+                  "    }",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Global Utility Injection",
+                  "/**\n * This module provides a standardized way to send HTTP requests within the Postman sandbox.\n */\nclass ApiClient {\n    /**\n     * Sends an HTTP request using Postman pm.sendRequest\n     * @param {Object} options - Request configuration (method, url, headers, body, queryParams)\n     * @param {Function} callback - Postman callback function\n     */\n    send(options, callback) {\n        const { method, url, headers, body, queryParams } = options;\n        \n        const request = {\n            url: this._buildUrl(url, queryParams),\n            method: method || 'GET',\n            header: headers || {},\n            body: body ? {\n                mode: 'raw',\n                raw: typeof body === 'string' ? body : JSON.stringify(body),\n                options: {\n                    raw: {\n                        language: 'json'\n                    }\n                }\n            } : undefined\n        };\n\n        pm.sendRequest(request, callback);\n    }\n\n    _buildUrl(baseUrl, queryParams) {\n        if (!queryParams) return baseUrl;\n        const query = Object.keys(queryParams)\n            .map(key => `${encodeURIComponent(key)}=${encodeURIComponent(queryParams[key])}`)\n            .join('&');\n        return `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}${query}`;\n    }\n}\n\n\n/**\n * Dynamic Request Builder\n * \n * Builds API requests with environment-aware configurations.\n */\nclass RequestBuilder {\n    constructor(baseUrl) {\n        let base = baseUrl || pm.environment.get('baseUrl');\n        this.baseUrl = base.endsWith('/') ? base.slice(0, -1) : base;\n    }\n\n    build(endpoint, method = 'GET', options = {}) {\n        return {\n            method: method,\n            url: `${this.baseUrl}/${endpoint.startsWith('/') ? endpoint.substring(1) : endpoint}`,\n            headers: options.headers || { 'Content-Type': 'application/json' },\n            body: options.body,\n            queryParams: options.queryParams\n        };\n    }\n}\n\n\n/**\n * Generic Response Validator\n * \n * Standardized assertions for API responses.\n */\nclass ResponseValidator {\n    /**\n     * Asserts internal status code\n     * @param {number} code \n     */\n    static assertStatusCode(code) {\n        pm.test(`Status code is ${code}`, () => {\n            pm.response.to.have.status(code);\n        });\n    }\n\n    /**\n     * Asserts field existence in response body\n     * @param {string} fieldName \n     */\n    static assertFieldExists(fieldName) {\n        pm.test(`Response contains field: ${fieldName}`, () => {\n            const jsonData = pm.response.json();\n            pm.expect(jsonData).to.have.property(fieldName);\n        });\n    }\n\n    /**\n     * Asserts field type\n     * @param {string} fieldName \n     * @param {string} type - 'string', 'number', 'boolean', etc.\n     */\n    static assertFieldType(fieldName, type) {\n        pm.test(`${fieldName} should be of type ${type}`, () => {\n            const jsonData = pm.response.json();\n            pm.expect(jsonData[fieldName]).to.be.a(type);\n        });\n    }\n\n    /**\n     * Asserts response body structure matches expected keys\n     * @param {string[]} requiredKeys \n     */\n    static assertStructure(requiredKeys) {\n        pm.test('Response structure is valid', () => {\n            const jsonData = pm.response.json();\n            requiredKeys.forEach(key => {\n                pm.expect(jsonData).to.have.property(key);\n            });\n        });\n    }\n}\n\n\n/**\n * JSON Schema Validation Engine\n * \n * Validates responses against provided JSON schemas.\n */\nclass SchemaValidator {\n    /**\n     * Validates a JSON schema\n     * @param {Object} schema - JSON schema object\n     * @param {Object} data - Optional data to validate (defaults to pm.response.json())\n     */\n    static validate(schema, data) {\n        pm.test('Response schema is valid', () => {\n            const traceData = data || pm.response.json();\n            pm.expect(traceData).to.have.jsonSchema(schema);\n        });\n    }\n}\n\n\n/**\n * Reusable Test Data Factory\n * \n * Generates random, domain-independent test data.\n */\nclass TestDataFactory {\n    generateId() {\n        return Math.floor(Math.random() * 1000000);\n    }\n\n    generateUsername(prefix = 'user') {\n        const timestamp = new Date().getTime();\n        return `${prefix}_${timestamp}`;\n    }\n\n    generateEmail(domain = 'test.com') {\n        const randomStr = Math.random().toString(36).substring(7);\n        return `tester_${randomStr}@${domain}`;\n    }\n\n    generateString(length = 10) {\n        let result = '';\n        const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';\n        for (let i = 0; i < length; i++) {\n            result += characters.charAt(Math.floor(Math.random() * characters.length));\n        }\n        return result;\n    }\n}\n",
+                  "const validator = ResponseValidator;",
+                  "",
+                  "console.log(`[Framework] Response ${pm.info.requestName}: ${pm.response.code} ${pm.response.status}`);",
+                  "validator.assertStatusCode(200);",
+                  "pm.test(\"Quantity is 0\", () => {",
+                  "    pm.expect(pm.response.json().quantity).to.eql(0);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": ""
+            },
+            "url": {
+              "raw": "{{baseUrl}}",
+              "host": [
+                "{{baseUrl}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "getOrder",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Global Utility Injection",
+                  "/**\n * This module provides a standardized way to send HTTP requests within the Postman sandbox.\n */\nclass ApiClient {\n    /**\n     * Sends an HTTP request using Postman pm.sendRequest\n     * @param {Object} options - Request configuration (method, url, headers, body, queryParams)\n     * @param {Function} callback - Postman callback function\n     */\n    send(options, callback) {\n        const { method, url, headers, body, queryParams } = options;\n        \n        const request = {\n            url: this._buildUrl(url, queryParams),\n            method: method || 'GET',\n            header: headers || {},\n            body: body ? {\n                mode: 'raw',\n                raw: typeof body === 'string' ? body : JSON.stringify(body),\n                options: {\n                    raw: {\n                        language: 'json'\n                    }\n                }\n            } : undefined\n        };\n\n        pm.sendRequest(request, callback);\n    }\n\n    _buildUrl(baseUrl, queryParams) {\n        if (!queryParams) return baseUrl;\n        const query = Object.keys(queryParams)\n            .map(key => `${encodeURIComponent(key)}=${encodeURIComponent(queryParams[key])}`)\n            .join('&');\n        return `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}${query}`;\n    }\n}\n\n\n/**\n * Dynamic Request Builder\n * \n * Builds API requests with environment-aware configurations.\n */\nclass RequestBuilder {\n    constructor(baseUrl) {\n        let base = baseUrl || pm.environment.get('baseUrl');\n        this.baseUrl = base.endsWith('/') ? base.slice(0, -1) : base;\n    }\n\n    build(endpoint, method = 'GET', options = {}) {\n        return {\n            method: method,\n            url: `${this.baseUrl}/${endpoint.startsWith('/') ? endpoint.substring(1) : endpoint}`,\n            headers: options.headers || { 'Content-Type': 'application/json' },\n            body: options.body,\n            queryParams: options.queryParams\n        };\n    }\n}\n\n\n/**\n * Generic Response Validator\n * \n * Standardized assertions for API responses.\n */\nclass ResponseValidator {\n    /**\n     * Asserts internal status code\n     * @param {number} code \n     */\n    static assertStatusCode(code) {\n        pm.test(`Status code is ${code}`, () => {\n            pm.response.to.have.status(code);\n        });\n    }\n\n    /**\n     * Asserts field existence in response body\n     * @param {string} fieldName \n     */\n    static assertFieldExists(fieldName) {\n        pm.test(`Response contains field: ${fieldName}`, () => {\n            const jsonData = pm.response.json();\n            pm.expect(jsonData).to.have.property(fieldName);\n        });\n    }\n\n    /**\n     * Asserts field type\n     * @param {string} fieldName \n     * @param {string} type - 'string', 'number', 'boolean', etc.\n     */\n    static assertFieldType(fieldName, type) {\n        pm.test(`${fieldName} should be of type ${type}`, () => {\n            const jsonData = pm.response.json();\n            pm.expect(jsonData[fieldName]).to.be.a(type);\n        });\n    }\n\n    /**\n     * Asserts response body structure matches expected keys\n     * @param {string[]} requiredKeys \n     */\n    static assertStructure(requiredKeys) {\n        pm.test('Response structure is valid', () => {\n            const jsonData = pm.response.json();\n            requiredKeys.forEach(key => {\n                pm.expect(jsonData).to.have.property(key);\n            });\n        });\n    }\n}\n\n\n/**\n * JSON Schema Validation Engine\n * \n * Validates responses against provided JSON schemas.\n */\nclass SchemaValidator {\n    /**\n     * Validates a JSON schema\n     * @param {Object} schema - JSON schema object\n     * @param {Object} data - Optional data to validate (defaults to pm.response.json())\n     */\n    static validate(schema, data) {\n        pm.test('Response schema is valid', () => {\n            const traceData = data || pm.response.json();\n            pm.expect(traceData).to.have.jsonSchema(schema);\n        });\n    }\n}\n\n\n/**\n * Reusable Test Data Factory\n * \n * Generates random, domain-independent test data.\n */\nclass TestDataFactory {\n    generateId() {\n        return Math.floor(Math.random() * 1000000);\n    }\n\n    generateUsername(prefix = 'user') {\n        const timestamp = new Date().getTime();\n        return `${prefix}_${timestamp}`;\n    }\n\n    generateEmail(domain = 'test.com') {\n        const randomStr = Math.random().toString(36).substring(7);\n        return `tester_${randomStr}@${domain}`;\n    }\n\n    generateString(length = 10) {\n        let result = '';\n        const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';\n        for (let i = 0; i < length; i++) {\n            result += characters.charAt(Math.floor(Math.random() * characters.length));\n        }\n        return result;\n    }\n}\n",
+                  "const factory = new TestDataFactory();",
+                  "const builder = new RequestBuilder();",
+                  "",
+                  "// Pre-request Script logic",
+                  "const orderId = pm.environment.get('orderId');",
+                  "const req = builder.build(`/store/order/${orderId}`, 'GET');",
+                  "",
+                  "// Apply request overrides",
+                  "if (typeof req !== 'undefined') {",
+                  "    console.log(`[Framework] Request ${pm.info.requestName}: ${req.method} ${req.url}`);",
+                  "    pm.request.url.update(req.url);",
+                  "    pm.request.method = req.method;",
+                  "    if (req.body) {",
+                  "        pm.request.body.update({",
+                  "            mode: 'raw',",
+                  "            raw: JSON.stringify(req.body)",
+                  "        });",
+                  "    }",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Global Utility Injection",
+                  "/**\n * This module provides a standardized way to send HTTP requests within the Postman sandbox.\n */\nclass ApiClient {\n    /**\n     * Sends an HTTP request using Postman pm.sendRequest\n     * @param {Object} options - Request configuration (method, url, headers, body, queryParams)\n     * @param {Function} callback - Postman callback function\n     */\n    send(options, callback) {\n        const { method, url, headers, body, queryParams } = options;\n        \n        const request = {\n            url: this._buildUrl(url, queryParams),\n            method: method || 'GET',\n            header: headers || {},\n            body: body ? {\n                mode: 'raw',\n                raw: typeof body === 'string' ? body : JSON.stringify(body),\n                options: {\n                    raw: {\n                        language: 'json'\n                    }\n                }\n            } : undefined\n        };\n\n        pm.sendRequest(request, callback);\n    }\n\n    _buildUrl(baseUrl, queryParams) {\n        if (!queryParams) return baseUrl;\n        const query = Object.keys(queryParams)\n            .map(key => `${encodeURIComponent(key)}=${encodeURIComponent(queryParams[key])}`)\n            .join('&');\n        return `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}${query}`;\n    }\n}\n\n\n/**\n * Dynamic Request Builder\n * \n * Builds API requests with environment-aware configurations.\n */\nclass RequestBuilder {\n    constructor(baseUrl) {\n        let base = baseUrl || pm.environment.get('baseUrl');\n        this.baseUrl = base.endsWith('/') ? base.slice(0, -1) : base;\n    }\n\n    build(endpoint, method = 'GET', options = {}) {\n        return {\n            method: method,\n            url: `${this.baseUrl}/${endpoint.startsWith('/') ? endpoint.substring(1) : endpoint}`,\n            headers: options.headers || { 'Content-Type': 'application/json' },\n            body: options.body,\n            queryParams: options.queryParams\n        };\n    }\n}\n\n\n/**\n * Generic Response Validator\n * \n * Standardized assertions for API responses.\n */\nclass ResponseValidator {\n    /**\n     * Asserts internal status code\n     * @param {number} code \n     */\n    static assertStatusCode(code) {\n        pm.test(`Status code is ${code}`, () => {\n            pm.response.to.have.status(code);\n        });\n    }\n\n    /**\n     * Asserts field existence in response body\n     * @param {string} fieldName \n     */\n    static assertFieldExists(fieldName) {\n        pm.test(`Response contains field: ${fieldName}`, () => {\n            const jsonData = pm.response.json();\n            pm.expect(jsonData).to.have.property(fieldName);\n        });\n    }\n\n    /**\n     * Asserts field type\n     * @param {string} fieldName \n     * @param {string} type - 'string', 'number', 'boolean', etc.\n     */\n    static assertFieldType(fieldName, type) {\n        pm.test(`${fieldName} should be of type ${type}`, () => {\n            const jsonData = pm.response.json();\n            pm.expect(jsonData[fieldName]).to.be.a(type);\n        });\n    }\n\n    /**\n     * Asserts response body structure matches expected keys\n     * @param {string[]} requiredKeys \n     */\n    static assertStructure(requiredKeys) {\n        pm.test('Response structure is valid', () => {\n            const jsonData = pm.response.json();\n            requiredKeys.forEach(key => {\n                pm.expect(jsonData).to.have.property(key);\n            });\n        });\n    }\n}\n\n\n/**\n * JSON Schema Validation Engine\n * \n * Validates responses against provided JSON schemas.\n */\nclass SchemaValidator {\n    /**\n     * Validates a JSON schema\n     * @param {Object} schema - JSON schema object\n     * @param {Object} data - Optional data to validate (defaults to pm.response.json())\n     */\n    static validate(schema, data) {\n        pm.test('Response schema is valid', () => {\n            const traceData = data || pm.response.json();\n            pm.expect(traceData).to.have.jsonSchema(schema);\n        });\n    }\n}\n\n\n/**\n * Reusable Test Data Factory\n * \n * Generates random, domain-independent test data.\n */\nclass TestDataFactory {\n    generateId() {\n        return Math.floor(Math.random() * 1000000);\n    }\n\n    generateUsername(prefix = 'user') {\n        const timestamp = new Date().getTime();\n        return `${prefix}_${timestamp}`;\n    }\n\n    generateEmail(domain = 'test.com') {\n        const randomStr = Math.random().toString(36).substring(7);\n        return `tester_${randomStr}@${domain}`;\n    }\n\n    generateString(length = 10) {\n        let result = '';\n        const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';\n        for (let i = 0; i < length; i++) {\n            result += characters.charAt(Math.floor(Math.random() * characters.length));\n        }\n        return result;\n    }\n}\n",
+                  "const validator = ResponseValidator;",
+                  "",
+                  "console.log(`[Framework] Response ${pm.info.requestName}: ${pm.response.code} ${pm.response.status}`);",
+                  "validator.assertStatusCode(200);",
+                  "pm.test(\"Order ID matches\", () => {",
+                  "    const orderId = pm.environment.get('orderId');",
+                  "    pm.expect(pm.response.json().id.toString()).to.eql(orderId.toString());",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": ""
+            },
+            "url": {
+              "raw": "{{baseUrl}}",
+              "host": [
+                "{{baseUrl}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "getMissingOrder",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Global Utility Injection",
+                  "/**\n * This module provides a standardized way to send HTTP requests within the Postman sandbox.\n */\nclass ApiClient {\n    /**\n     * Sends an HTTP request using Postman pm.sendRequest\n     * @param {Object} options - Request configuration (method, url, headers, body, queryParams)\n     * @param {Function} callback - Postman callback function\n     */\n    send(options, callback) {\n        const { method, url, headers, body, queryParams } = options;\n        \n        const request = {\n            url: this._buildUrl(url, queryParams),\n            method: method || 'GET',\n            header: headers || {},\n            body: body ? {\n                mode: 'raw',\n                raw: typeof body === 'string' ? body : JSON.stringify(body),\n                options: {\n                    raw: {\n                        language: 'json'\n                    }\n                }\n            } : undefined\n        };\n\n        pm.sendRequest(request, callback);\n    }\n\n    _buildUrl(baseUrl, queryParams) {\n        if (!queryParams) return baseUrl;\n        const query = Object.keys(queryParams)\n            .map(key => `${encodeURIComponent(key)}=${encodeURIComponent(queryParams[key])}`)\n            .join('&');\n        return `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}${query}`;\n    }\n}\n\n\n/**\n * Dynamic Request Builder\n * \n * Builds API requests with environment-aware configurations.\n */\nclass RequestBuilder {\n    constructor(baseUrl) {\n        let base = baseUrl || pm.environment.get('baseUrl');\n        this.baseUrl = base.endsWith('/') ? base.slice(0, -1) : base;\n    }\n\n    build(endpoint, method = 'GET', options = {}) {\n        return {\n            method: method,\n            url: `${this.baseUrl}/${endpoint.startsWith('/') ? endpoint.substring(1) : endpoint}`,\n            headers: options.headers || { 'Content-Type': 'application/json' },\n            body: options.body,\n            queryParams: options.queryParams\n        };\n    }\n}\n\n\n/**\n * Generic Response Validator\n * \n * Standardized assertions for API responses.\n */\nclass ResponseValidator {\n    /**\n     * Asserts internal status code\n     * @param {number} code \n     */\n    static assertStatusCode(code) {\n        pm.test(`Status code is ${code}`, () => {\n            pm.response.to.have.status(code);\n        });\n    }\n\n    /**\n     * Asserts field existence in response body\n     * @param {string} fieldName \n     */\n    static assertFieldExists(fieldName) {\n        pm.test(`Response contains field: ${fieldName}`, () => {\n            const jsonData = pm.response.json();\n            pm.expect(jsonData).to.have.property(fieldName);\n        });\n    }\n\n    /**\n     * Asserts field type\n     * @param {string} fieldName \n     * @param {string} type - 'string', 'number', 'boolean', etc.\n     */\n    static assertFieldType(fieldName, type) {\n        pm.test(`${fieldName} should be of type ${type}`, () => {\n            const jsonData = pm.response.json();\n            pm.expect(jsonData[fieldName]).to.be.a(type);\n        });\n    }\n\n    /**\n     * Asserts response body structure matches expected keys\n     * @param {string[]} requiredKeys \n     */\n    static assertStructure(requiredKeys) {\n        pm.test('Response structure is valid', () => {\n            const jsonData = pm.response.json();\n            requiredKeys.forEach(key => {\n                pm.expect(jsonData).to.have.property(key);\n            });\n        });\n    }\n}\n\n\n/**\n * JSON Schema Validation Engine\n * \n * Validates responses against provided JSON schemas.\n */\nclass SchemaValidator {\n    /**\n     * Validates a JSON schema\n     * @param {Object} schema - JSON schema object\n     * @param {Object} data - Optional data to validate (defaults to pm.response.json())\n     */\n    static validate(schema, data) {\n        pm.test('Response schema is valid', () => {\n            const traceData = data || pm.response.json();\n            pm.expect(traceData).to.have.jsonSchema(schema);\n        });\n    }\n}\n\n\n/**\n * Reusable Test Data Factory\n * \n * Generates random, domain-independent test data.\n */\nclass TestDataFactory {\n    generateId() {\n        return Math.floor(Math.random() * 1000000);\n    }\n\n    generateUsername(prefix = 'user') {\n        const timestamp = new Date().getTime();\n        return `${prefix}_${timestamp}`;\n    }\n\n    generateEmail(domain = 'test.com') {\n        const randomStr = Math.random().toString(36).substring(7);\n        return `tester_${randomStr}@${domain}`;\n    }\n\n    generateString(length = 10) {\n        let result = '';\n        const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';\n        for (let i = 0; i < length; i++) {\n            result += characters.charAt(Math.floor(Math.random() * characters.length));\n        }\n        return result;\n    }\n}\n",
+                  "const factory = new TestDataFactory();",
+                  "const builder = new RequestBuilder();",
+                  "",
+                  "/**",
+                  " * TC-STORE-03: [NEG] Get Missing Order",
+                  " */",
+                  "",
+                  "// Pre-request Script logic",
+                  "const req = builder.build('/store/order/0', 'GET');",
+                  "",
+                  "// Apply request overrides",
+                  "if (typeof req !== 'undefined') {",
+                  "    console.log(`[Framework] Request ${pm.info.requestName}: ${req.method} ${req.url}`);",
+                  "    pm.request.url.update(req.url);",
+                  "    pm.request.method = req.method;",
+                  "    if (req.body) {",
+                  "        pm.request.body.update({",
+                  "            mode: 'raw',",
+                  "            raw: JSON.stringify(req.body)",
+                  "        });",
+                  "    }",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Global Utility Injection",
+                  "/**\n * This module provides a standardized way to send HTTP requests within the Postman sandbox.\n */\nclass ApiClient {\n    /**\n     * Sends an HTTP request using Postman pm.sendRequest\n     * @param {Object} options - Request configuration (method, url, headers, body, queryParams)\n     * @param {Function} callback - Postman callback function\n     */\n    send(options, callback) {\n        const { method, url, headers, body, queryParams } = options;\n        \n        const request = {\n            url: this._buildUrl(url, queryParams),\n            method: method || 'GET',\n            header: headers || {},\n            body: body ? {\n                mode: 'raw',\n                raw: typeof body === 'string' ? body : JSON.stringify(body),\n                options: {\n                    raw: {\n                        language: 'json'\n                    }\n                }\n            } : undefined\n        };\n\n        pm.sendRequest(request, callback);\n    }\n\n    _buildUrl(baseUrl, queryParams) {\n        if (!queryParams) return baseUrl;\n        const query = Object.keys(queryParams)\n            .map(key => `${encodeURIComponent(key)}=${encodeURIComponent(queryParams[key])}`)\n            .join('&');\n        return `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}${query}`;\n    }\n}\n\n\n/**\n * Dynamic Request Builder\n * \n * Builds API requests with environment-aware configurations.\n */\nclass RequestBuilder {\n    constructor(baseUrl) {\n        let base = baseUrl || pm.environment.get('baseUrl');\n        this.baseUrl = base.endsWith('/') ? base.slice(0, -1) : base;\n    }\n\n    build(endpoint, method = 'GET', options = {}) {\n        return {\n            method: method,\n            url: `${this.baseUrl}/${endpoint.startsWith('/') ? endpoint.substring(1) : endpoint}`,\n            headers: options.headers || { 'Content-Type': 'application/json' },\n            body: options.body,\n            queryParams: options.queryParams\n        };\n    }\n}\n\n\n/**\n * Generic Response Validator\n * \n * Standardized assertions for API responses.\n */\nclass ResponseValidator {\n    /**\n     * Asserts internal status code\n     * @param {number} code \n     */\n    static assertStatusCode(code) {\n        pm.test(`Status code is ${code}`, () => {\n            pm.response.to.have.status(code);\n        });\n    }\n\n    /**\n     * Asserts field existence in response body\n     * @param {string} fieldName \n     */\n    static assertFieldExists(fieldName) {\n        pm.test(`Response contains field: ${fieldName}`, () => {\n            const jsonData = pm.response.json();\n            pm.expect(jsonData).to.have.property(fieldName);\n        });\n    }\n\n    /**\n     * Asserts field type\n     * @param {string} fieldName \n     * @param {string} type - 'string', 'number', 'boolean', etc.\n     */\n    static assertFieldType(fieldName, type) {\n        pm.test(`${fieldName} should be of type ${type}`, () => {\n            const jsonData = pm.response.json();\n            pm.expect(jsonData[fieldName]).to.be.a(type);\n        });\n    }\n\n    /**\n     * Asserts response body structure matches expected keys\n     * @param {string[]} requiredKeys \n     */\n    static assertStructure(requiredKeys) {\n        pm.test('Response structure is valid', () => {\n            const jsonData = pm.response.json();\n            requiredKeys.forEach(key => {\n                pm.expect(jsonData).to.have.property(key);\n            });\n        });\n    }\n}\n\n\n/**\n * JSON Schema Validation Engine\n * \n * Validates responses against provided JSON schemas.\n */\nclass SchemaValidator {\n    /**\n     * Validates a JSON schema\n     * @param {Object} schema - JSON schema object\n     * @param {Object} data - Optional data to validate (defaults to pm.response.json())\n     */\n    static validate(schema, data) {\n        pm.test('Response schema is valid', () => {\n            const traceData = data || pm.response.json();\n            pm.expect(traceData).to.have.jsonSchema(schema);\n        });\n    }\n}\n\n\n/**\n * Reusable Test Data Factory\n * \n * Generates random, domain-independent test data.\n */\nclass TestDataFactory {\n    generateId() {\n        return Math.floor(Math.random() * 1000000);\n    }\n\n    generateUsername(prefix = 'user') {\n        const timestamp = new Date().getTime();\n        return `${prefix}_${timestamp}`;\n    }\n\n    generateEmail(domain = 'test.com') {\n        const randomStr = Math.random().toString(36).substring(7);\n        return `tester_${randomStr}@${domain}`;\n    }\n\n    generateString(length = 10) {\n        let result = '';\n        const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';\n        for (let i = 0; i < length; i++) {\n            result += characters.charAt(Math.floor(Math.random() * characters.length));\n        }\n        return result;\n    }\n}\n",
+                  "const validator = ResponseValidator;",
+                  "",
+                  "console.log(`[Framework] Response ${pm.info.requestName}: ${pm.response.code} ${pm.response.status}`);",
+                  "validator.assertStatusCode(404);",
+                  "pm.test(\"Error message exists\", () => {",
+                  "    pm.expect(pm.response.json().message).to.eql(\"Order not found\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": ""
+            },
+            "url": {
+              "raw": "{{baseUrl}}",
+              "host": [
+                "{{baseUrl}}"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "User",
+      "item": [
+        {
+          "name": "createUser",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Global Utility Injection",
+                  "/**\n * This module provides a standardized way to send HTTP requests within the Postman sandbox.\n */\nclass ApiClient {\n    /**\n     * Sends an HTTP request using Postman pm.sendRequest\n     * @param {Object} options - Request configuration (method, url, headers, body, queryParams)\n     * @param {Function} callback - Postman callback function\n     */\n    send(options, callback) {\n        const { method, url, headers, body, queryParams } = options;\n        \n        const request = {\n            url: this._buildUrl(url, queryParams),\n            method: method || 'GET',\n            header: headers || {},\n            body: body ? {\n                mode: 'raw',\n                raw: typeof body === 'string' ? body : JSON.stringify(body),\n                options: {\n                    raw: {\n                        language: 'json'\n                    }\n                }\n            } : undefined\n        };\n\n        pm.sendRequest(request, callback);\n    }\n\n    _buildUrl(baseUrl, queryParams) {\n        if (!queryParams) return baseUrl;\n        const query = Object.keys(queryParams)\n            .map(key => `${encodeURIComponent(key)}=${encodeURIComponent(queryParams[key])}`)\n            .join('&');\n        return `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}${query}`;\n    }\n}\n\n\n/**\n * Dynamic Request Builder\n * \n * Builds API requests with environment-aware configurations.\n */\nclass RequestBuilder {\n    constructor(baseUrl) {\n        let base = baseUrl || pm.environment.get('baseUrl');\n        this.baseUrl = base.endsWith('/') ? base.slice(0, -1) : base;\n    }\n\n    build(endpoint, method = 'GET', options = {}) {\n        return {\n            method: method,\n            url: `${this.baseUrl}/${endpoint.startsWith('/') ? endpoint.substring(1) : endpoint}`,\n            headers: options.headers || { 'Content-Type': 'application/json' },\n            body: options.body,\n            queryParams: options.queryParams\n        };\n    }\n}\n\n\n/**\n * Generic Response Validator\n * \n * Standardized assertions for API responses.\n */\nclass ResponseValidator {\n    /**\n     * Asserts internal status code\n     * @param {number} code \n     */\n    static assertStatusCode(code) {\n        pm.test(`Status code is ${code}`, () => {\n            pm.response.to.have.status(code);\n        });\n    }\n\n    /**\n     * Asserts field existence in response body\n     * @param {string} fieldName \n     */\n    static assertFieldExists(fieldName) {\n        pm.test(`Response contains field: ${fieldName}`, () => {\n            const jsonData = pm.response.json();\n            pm.expect(jsonData).to.have.property(fieldName);\n        });\n    }\n\n    /**\n     * Asserts field type\n     * @param {string} fieldName \n     * @param {string} type - 'string', 'number', 'boolean', etc.\n     */\n    static assertFieldType(fieldName, type) {\n        pm.test(`${fieldName} should be of type ${type}`, () => {\n            const jsonData = pm.response.json();\n            pm.expect(jsonData[fieldName]).to.be.a(type);\n        });\n    }\n\n    /**\n     * Asserts response body structure matches expected keys\n     * @param {string[]} requiredKeys \n     */\n    static assertStructure(requiredKeys) {\n        pm.test('Response structure is valid', () => {\n            const jsonData = pm.response.json();\n            requiredKeys.forEach(key => {\n                pm.expect(jsonData).to.have.property(key);\n            });\n        });\n    }\n}\n\n\n/**\n * JSON Schema Validation Engine\n * \n * Validates responses against provided JSON schemas.\n */\nclass SchemaValidator {\n    /**\n     * Validates a JSON schema\n     * @param {Object} schema - JSON schema object\n     * @param {Object} data - Optional data to validate (defaults to pm.response.json())\n     */\n    static validate(schema, data) {\n        pm.test('Response schema is valid', () => {\n            const traceData = data || pm.response.json();\n            pm.expect(traceData).to.have.jsonSchema(schema);\n        });\n    }\n}\n\n\n/**\n * Reusable Test Data Factory\n * \n * Generates random, domain-independent test data.\n */\nclass TestDataFactory {\n    generateId() {\n        return Math.floor(Math.random() * 1000000);\n    }\n\n    generateUsername(prefix = 'user') {\n        const timestamp = new Date().getTime();\n        return `${prefix}_${timestamp}`;\n    }\n\n    generateEmail(domain = 'test.com') {\n        const randomStr = Math.random().toString(36).substring(7);\n        return `tester_${randomStr}@${domain}`;\n    }\n\n    generateString(length = 10) {\n        let result = '';\n        const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';\n        for (let i = 0; i < length; i++) {\n            result += characters.charAt(Math.floor(Math.random() * characters.length));\n        }\n        return result;\n    }\n}\n",
+                  "const factory = new TestDataFactory();",
+                  "const builder = new RequestBuilder();",
+                  "",
+                  "/**",
+                  " * TC-USER-01: Create User (Happy Path)",
+                  " */",
+                  "",
+                  "// Pre-request Script logic",
+                  "",
+                  "",
+                  "",
+                  "const userData = {",
+                  "    id: factory.generateId(),",
+                  "    username: factory.generateUsername(),",
+                  "    firstName: \"Test\",",
+                  "    lastName: \"User\",",
+                  "    email: factory.generateEmail(),",
+                  "    password: \"Password123\",",
+                  "    phone: \"123456789\",",
+                  "    userStatus: 0",
+                  "};",
+                  "",
+                  "const req = builder.build('/user', 'POST', { body: userData });",
+                  "",
+                  "pm.variables.set('reqMethod', req.method);",
+                  "pm.variables.set('reqUrl', req.url);",
+                  "pm.variables.set('reqBody', JSON.stringify(req.body));",
+                  "pm.environment.set('username', userData.username);",
+                  "",
+                  "// Apply request overrides",
+                  "if (typeof req !== 'undefined') {",
+                  "    console.log(`[Framework] Request ${pm.info.requestName}: ${req.method} ${req.url}`);",
+                  "    pm.request.url.update(req.url);",
+                  "    pm.request.method = req.method;",
+                  "    if (req.body) {",
+                  "        pm.request.body.update({",
+                  "            mode: 'raw',",
+                  "            raw: JSON.stringify(req.body)",
+                  "        });",
+                  "    }",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Global Utility Injection",
+                  "/**\n * This module provides a standardized way to send HTTP requests within the Postman sandbox.\n */\nclass ApiClient {\n    /**\n     * Sends an HTTP request using Postman pm.sendRequest\n     * @param {Object} options - Request configuration (method, url, headers, body, queryParams)\n     * @param {Function} callback - Postman callback function\n     */\n    send(options, callback) {\n        const { method, url, headers, body, queryParams } = options;\n        \n        const request = {\n            url: this._buildUrl(url, queryParams),\n            method: method || 'GET',\n            header: headers || {},\n            body: body ? {\n                mode: 'raw',\n                raw: typeof body === 'string' ? body : JSON.stringify(body),\n                options: {\n                    raw: {\n                        language: 'json'\n                    }\n                }\n            } : undefined\n        };\n\n        pm.sendRequest(request, callback);\n    }\n\n    _buildUrl(baseUrl, queryParams) {\n        if (!queryParams) return baseUrl;\n        const query = Object.keys(queryParams)\n            .map(key => `${encodeURIComponent(key)}=${encodeURIComponent(queryParams[key])}`)\n            .join('&');\n        return `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}${query}`;\n    }\n}\n\n\n/**\n * Dynamic Request Builder\n * \n * Builds API requests with environment-aware configurations.\n */\nclass RequestBuilder {\n    constructor(baseUrl) {\n        let base = baseUrl || pm.environment.get('baseUrl');\n        this.baseUrl = base.endsWith('/') ? base.slice(0, -1) : base;\n    }\n\n    build(endpoint, method = 'GET', options = {}) {\n        return {\n            method: method,\n            url: `${this.baseUrl}/${endpoint.startsWith('/') ? endpoint.substring(1) : endpoint}`,\n            headers: options.headers || { 'Content-Type': 'application/json' },\n            body: options.body,\n            queryParams: options.queryParams\n        };\n    }\n}\n\n\n/**\n * Generic Response Validator\n * \n * Standardized assertions for API responses.\n */\nclass ResponseValidator {\n    /**\n     * Asserts internal status code\n     * @param {number} code \n     */\n    static assertStatusCode(code) {\n        pm.test(`Status code is ${code}`, () => {\n            pm.response.to.have.status(code);\n        });\n    }\n\n    /**\n     * Asserts field existence in response body\n     * @param {string} fieldName \n     */\n    static assertFieldExists(fieldName) {\n        pm.test(`Response contains field: ${fieldName}`, () => {\n            const jsonData = pm.response.json();\n            pm.expect(jsonData).to.have.property(fieldName);\n        });\n    }\n\n    /**\n     * Asserts field type\n     * @param {string} fieldName \n     * @param {string} type - 'string', 'number', 'boolean', etc.\n     */\n    static assertFieldType(fieldName, type) {\n        pm.test(`${fieldName} should be of type ${type}`, () => {\n            const jsonData = pm.response.json();\n            pm.expect(jsonData[fieldName]).to.be.a(type);\n        });\n    }\n\n    /**\n     * Asserts response body structure matches expected keys\n     * @param {string[]} requiredKeys \n     */\n    static assertStructure(requiredKeys) {\n        pm.test('Response structure is valid', () => {\n            const jsonData = pm.response.json();\n            requiredKeys.forEach(key => {\n                pm.expect(jsonData).to.have.property(key);\n            });\n        });\n    }\n}\n\n\n/**\n * JSON Schema Validation Engine\n * \n * Validates responses against provided JSON schemas.\n */\nclass SchemaValidator {\n    /**\n     * Validates a JSON schema\n     * @param {Object} schema - JSON schema object\n     * @param {Object} data - Optional data to validate (defaults to pm.response.json())\n     */\n    static validate(schema, data) {\n        pm.test('Response schema is valid', () => {\n            const traceData = data || pm.response.json();\n            pm.expect(traceData).to.have.jsonSchema(schema);\n        });\n    }\n}\n\n\n/**\n * Reusable Test Data Factory\n * \n * Generates random, domain-independent test data.\n */\nclass TestDataFactory {\n    generateId() {\n        return Math.floor(Math.random() * 1000000);\n    }\n\n    generateUsername(prefix = 'user') {\n        const timestamp = new Date().getTime();\n        return `${prefix}_${timestamp}`;\n    }\n\n    generateEmail(domain = 'test.com') {\n        const randomStr = Math.random().toString(36).substring(7);\n        return `tester_${randomStr}@${domain}`;\n    }\n\n    generateString(length = 10) {\n        let result = '';\n        const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';\n        for (let i = 0; i < length; i++) {\n            result += characters.charAt(Math.floor(Math.random() * characters.length));\n        }\n        return result;\n    }\n}\n",
+                  "const validator = ResponseValidator;",
+                  "",
+                  "console.log(`[Framework] Response ${pm.info.requestName}: ${pm.response.code} ${pm.response.status}`);",
+                  "validator.assertStatusCode(200);",
+                  "validator.assertFieldExists('message');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": ""
+            },
+            "url": {
+              "raw": "{{baseUrl}}",
+              "host": [
+                "{{baseUrl}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "getUser",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Global Utility Injection",
+                  "/**\n * This module provides a standardized way to send HTTP requests within the Postman sandbox.\n */\nclass ApiClient {\n    /**\n     * Sends an HTTP request using Postman pm.sendRequest\n     * @param {Object} options - Request configuration (method, url, headers, body, queryParams)\n     * @param {Function} callback - Postman callback function\n     */\n    send(options, callback) {\n        const { method, url, headers, body, queryParams } = options;\n        \n        const request = {\n            url: this._buildUrl(url, queryParams),\n            method: method || 'GET',\n            header: headers || {},\n            body: body ? {\n                mode: 'raw',\n                raw: typeof body === 'string' ? body : JSON.stringify(body),\n                options: {\n                    raw: {\n                        language: 'json'\n                    }\n                }\n            } : undefined\n        };\n\n        pm.sendRequest(request, callback);\n    }\n\n    _buildUrl(baseUrl, queryParams) {\n        if (!queryParams) return baseUrl;\n        const query = Object.keys(queryParams)\n            .map(key => `${encodeURIComponent(key)}=${encodeURIComponent(queryParams[key])}`)\n            .join('&');\n        return `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}${query}`;\n    }\n}\n\n\n/**\n * Dynamic Request Builder\n * \n * Builds API requests with environment-aware configurations.\n */\nclass RequestBuilder {\n    constructor(baseUrl) {\n        let base = baseUrl || pm.environment.get('baseUrl');\n        this.baseUrl = base.endsWith('/') ? base.slice(0, -1) : base;\n    }\n\n    build(endpoint, method = 'GET', options = {}) {\n        return {\n            method: method,\n            url: `${this.baseUrl}/${endpoint.startsWith('/') ? endpoint.substring(1) : endpoint}`,\n            headers: options.headers || { 'Content-Type': 'application/json' },\n            body: options.body,\n            queryParams: options.queryParams\n        };\n    }\n}\n\n\n/**\n * Generic Response Validator\n * \n * Standardized assertions for API responses.\n */\nclass ResponseValidator {\n    /**\n     * Asserts internal status code\n     * @param {number} code \n     */\n    static assertStatusCode(code) {\n        pm.test(`Status code is ${code}`, () => {\n            pm.response.to.have.status(code);\n        });\n    }\n\n    /**\n     * Asserts field existence in response body\n     * @param {string} fieldName \n     */\n    static assertFieldExists(fieldName) {\n        pm.test(`Response contains field: ${fieldName}`, () => {\n            const jsonData = pm.response.json();\n            pm.expect(jsonData).to.have.property(fieldName);\n        });\n    }\n\n    /**\n     * Asserts field type\n     * @param {string} fieldName \n     * @param {string} type - 'string', 'number', 'boolean', etc.\n     */\n    static assertFieldType(fieldName, type) {\n        pm.test(`${fieldName} should be of type ${type}`, () => {\n            const jsonData = pm.response.json();\n            pm.expect(jsonData[fieldName]).to.be.a(type);\n        });\n    }\n\n    /**\n     * Asserts response body structure matches expected keys\n     * @param {string[]} requiredKeys \n     */\n    static assertStructure(requiredKeys) {\n        pm.test('Response structure is valid', () => {\n            const jsonData = pm.response.json();\n            requiredKeys.forEach(key => {\n                pm.expect(jsonData).to.have.property(key);\n            });\n        });\n    }\n}\n\n\n/**\n * JSON Schema Validation Engine\n * \n * Validates responses against provided JSON schemas.\n */\nclass SchemaValidator {\n    /**\n     * Validates a JSON schema\n     * @param {Object} schema - JSON schema object\n     * @param {Object} data - Optional data to validate (defaults to pm.response.json())\n     */\n    static validate(schema, data) {\n        pm.test('Response schema is valid', () => {\n            const traceData = data || pm.response.json();\n            pm.expect(traceData).to.have.jsonSchema(schema);\n        });\n    }\n}\n\n\n/**\n * Reusable Test Data Factory\n * \n * Generates random, domain-independent test data.\n */\nclass TestDataFactory {\n    generateId() {\n        return Math.floor(Math.random() * 1000000);\n    }\n\n    generateUsername(prefix = 'user') {\n        const timestamp = new Date().getTime();\n        return `${prefix}_${timestamp}`;\n    }\n\n    generateEmail(domain = 'test.com') {\n        const randomStr = Math.random().toString(36).substring(7);\n        return `tester_${randomStr}@${domain}`;\n    }\n\n    generateString(length = 10) {\n        let result = '';\n        const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';\n        for (let i = 0; i < length; i++) {\n            result += characters.charAt(Math.floor(Math.random() * characters.length));\n        }\n        return result;\n    }\n}\n",
+                  "const factory = new TestDataFactory();",
+                  "const builder = new RequestBuilder();",
+                  "",
+                  "// Pre-request Script logic",
+                  "const username = pm.environment.get('username');",
+                  "const req = builder.build(`/user/${username}`, 'GET');",
+                  "",
+                  "// Apply request overrides",
+                  "if (typeof req !== 'undefined') {",
+                  "    console.log(`[Framework] Request ${pm.info.requestName}: ${req.method} ${req.url}`);",
+                  "    pm.request.url.update(req.url);",
+                  "    pm.request.method = req.method;",
+                  "    if (req.body) {",
+                  "        pm.request.body.update({",
+                  "            mode: 'raw',",
+                  "            raw: JSON.stringify(req.body)",
+                  "        });",
+                  "    }",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Global Utility Injection",
+                  "/**\n * This module provides a standardized way to send HTTP requests within the Postman sandbox.\n */\nclass ApiClient {\n    /**\n     * Sends an HTTP request using Postman pm.sendRequest\n     * @param {Object} options - Request configuration (method, url, headers, body, queryParams)\n     * @param {Function} callback - Postman callback function\n     */\n    send(options, callback) {\n        const { method, url, headers, body, queryParams } = options;\n        \n        const request = {\n            url: this._buildUrl(url, queryParams),\n            method: method || 'GET',\n            header: headers || {},\n            body: body ? {\n                mode: 'raw',\n                raw: typeof body === 'string' ? body : JSON.stringify(body),\n                options: {\n                    raw: {\n                        language: 'json'\n                    }\n                }\n            } : undefined\n        };\n\n        pm.sendRequest(request, callback);\n    }\n\n    _buildUrl(baseUrl, queryParams) {\n        if (!queryParams) return baseUrl;\n        const query = Object.keys(queryParams)\n            .map(key => `${encodeURIComponent(key)}=${encodeURIComponent(queryParams[key])}`)\n            .join('&');\n        return `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}${query}`;\n    }\n}\n\n\n/**\n * Dynamic Request Builder\n * \n * Builds API requests with environment-aware configurations.\n */\nclass RequestBuilder {\n    constructor(baseUrl) {\n        let base = baseUrl || pm.environment.get('baseUrl');\n        this.baseUrl = base.endsWith('/') ? base.slice(0, -1) : base;\n    }\n\n    build(endpoint, method = 'GET', options = {}) {\n        return {\n            method: method,\n            url: `${this.baseUrl}/${endpoint.startsWith('/') ? endpoint.substring(1) : endpoint}`,\n            headers: options.headers || { 'Content-Type': 'application/json' },\n            body: options.body,\n            queryParams: options.queryParams\n        };\n    }\n}\n\n\n/**\n * Generic Response Validator\n * \n * Standardized assertions for API responses.\n */\nclass ResponseValidator {\n    /**\n     * Asserts internal status code\n     * @param {number} code \n     */\n    static assertStatusCode(code) {\n        pm.test(`Status code is ${code}`, () => {\n            pm.response.to.have.status(code);\n        });\n    }\n\n    /**\n     * Asserts field existence in response body\n     * @param {string} fieldName \n     */\n    static assertFieldExists(fieldName) {\n        pm.test(`Response contains field: ${fieldName}`, () => {\n            const jsonData = pm.response.json();\n            pm.expect(jsonData).to.have.property(fieldName);\n        });\n    }\n\n    /**\n     * Asserts field type\n     * @param {string} fieldName \n     * @param {string} type - 'string', 'number', 'boolean', etc.\n     */\n    static assertFieldType(fieldName, type) {\n        pm.test(`${fieldName} should be of type ${type}`, () => {\n            const jsonData = pm.response.json();\n            pm.expect(jsonData[fieldName]).to.be.a(type);\n        });\n    }\n\n    /**\n     * Asserts response body structure matches expected keys\n     * @param {string[]} requiredKeys \n     */\n    static assertStructure(requiredKeys) {\n        pm.test('Response structure is valid', () => {\n            const jsonData = pm.response.json();\n            requiredKeys.forEach(key => {\n                pm.expect(jsonData).to.have.property(key);\n            });\n        });\n    }\n}\n\n\n/**\n * JSON Schema Validation Engine\n * \n * Validates responses against provided JSON schemas.\n */\nclass SchemaValidator {\n    /**\n     * Validates a JSON schema\n     * @param {Object} schema - JSON schema object\n     * @param {Object} data - Optional data to validate (defaults to pm.response.json())\n     */\n    static validate(schema, data) {\n        pm.test('Response schema is valid', () => {\n            const traceData = data || pm.response.json();\n            pm.expect(traceData).to.have.jsonSchema(schema);\n        });\n    }\n}\n\n\n/**\n * Reusable Test Data Factory\n * \n * Generates random, domain-independent test data.\n */\nclass TestDataFactory {\n    generateId() {\n        return Math.floor(Math.random() * 1000000);\n    }\n\n    generateUsername(prefix = 'user') {\n        const timestamp = new Date().getTime();\n        return `${prefix}_${timestamp}`;\n    }\n\n    generateEmail(domain = 'test.com') {\n        const randomStr = Math.random().toString(36).substring(7);\n        return `tester_${randomStr}@${domain}`;\n    }\n\n    generateString(length = 10) {\n        let result = '';\n        const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';\n        for (let i = 0; i < length; i++) {\n            result += characters.charAt(Math.floor(Math.random() * characters.length));\n        }\n        return result;\n    }\n}\n",
+                  "const validator = ResponseValidator;",
+                  "",
+                  "console.log(`[Framework] Response ${pm.info.requestName}: ${pm.response.code} ${pm.response.status}`);",
+                  "validator.assertStatusCode(200);",
+                  "pm.test(\"Username matches\", () => {",
+                  "    const username = pm.environment.get('username');",
+                  "    pm.expect(pm.response.json().username).to.eql(username);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": ""
+            },
+            "url": {
+              "raw": "{{baseUrl}}",
+              "host": [
+                "{{baseUrl}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "updateUser",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Global Utility Injection",
+                  "/**\n * This module provides a standardized way to send HTTP requests within the Postman sandbox.\n */\nclass ApiClient {\n    /**\n     * Sends an HTTP request using Postman pm.sendRequest\n     * @param {Object} options - Request configuration (method, url, headers, body, queryParams)\n     * @param {Function} callback - Postman callback function\n     */\n    send(options, callback) {\n        const { method, url, headers, body, queryParams } = options;\n        \n        const request = {\n            url: this._buildUrl(url, queryParams),\n            method: method || 'GET',\n            header: headers || {},\n            body: body ? {\n                mode: 'raw',\n                raw: typeof body === 'string' ? body : JSON.stringify(body),\n                options: {\n                    raw: {\n                        language: 'json'\n                    }\n                }\n            } : undefined\n        };\n\n        pm.sendRequest(request, callback);\n    }\n\n    _buildUrl(baseUrl, queryParams) {\n        if (!queryParams) return baseUrl;\n        const query = Object.keys(queryParams)\n            .map(key => `${encodeURIComponent(key)}=${encodeURIComponent(queryParams[key])}`)\n            .join('&');\n        return `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}${query}`;\n    }\n}\n\n\n/**\n * Dynamic Request Builder\n * \n * Builds API requests with environment-aware configurations.\n */\nclass RequestBuilder {\n    constructor(baseUrl) {\n        let base = baseUrl || pm.environment.get('baseUrl');\n        this.baseUrl = base.endsWith('/') ? base.slice(0, -1) : base;\n    }\n\n    build(endpoint, method = 'GET', options = {}) {\n        return {\n            method: method,\n            url: `${this.baseUrl}/${endpoint.startsWith('/') ? endpoint.substring(1) : endpoint}`,\n            headers: options.headers || { 'Content-Type': 'application/json' },\n            body: options.body,\n            queryParams: options.queryParams\n        };\n    }\n}\n\n\n/**\n * Generic Response Validator\n * \n * Standardized assertions for API responses.\n */\nclass ResponseValidator {\n    /**\n     * Asserts internal status code\n     * @param {number} code \n     */\n    static assertStatusCode(code) {\n        pm.test(`Status code is ${code}`, () => {\n            pm.response.to.have.status(code);\n        });\n    }\n\n    /**\n     * Asserts field existence in response body\n     * @param {string} fieldName \n     */\n    static assertFieldExists(fieldName) {\n        pm.test(`Response contains field: ${fieldName}`, () => {\n            const jsonData = pm.response.json();\n            pm.expect(jsonData).to.have.property(fieldName);\n        });\n    }\n\n    /**\n     * Asserts field type\n     * @param {string} fieldName \n     * @param {string} type - 'string', 'number', 'boolean', etc.\n     */\n    static assertFieldType(fieldName, type) {\n        pm.test(`${fieldName} should be of type ${type}`, () => {\n            const jsonData = pm.response.json();\n            pm.expect(jsonData[fieldName]).to.be.a(type);\n        });\n    }\n\n    /**\n     * Asserts response body structure matches expected keys\n     * @param {string[]} requiredKeys \n     */\n    static assertStructure(requiredKeys) {\n        pm.test('Response structure is valid', () => {\n            const jsonData = pm.response.json();\n            requiredKeys.forEach(key => {\n                pm.expect(jsonData).to.have.property(key);\n            });\n        });\n    }\n}\n\n\n/**\n * JSON Schema Validation Engine\n * \n * Validates responses against provided JSON schemas.\n */\nclass SchemaValidator {\n    /**\n     * Validates a JSON schema\n     * @param {Object} schema - JSON schema object\n     * @param {Object} data - Optional data to validate (defaults to pm.response.json())\n     */\n    static validate(schema, data) {\n        pm.test('Response schema is valid', () => {\n            const traceData = data || pm.response.json();\n            pm.expect(traceData).to.have.jsonSchema(schema);\n        });\n    }\n}\n\n\n/**\n * Reusable Test Data Factory\n * \n * Generates random, domain-independent test data.\n */\nclass TestDataFactory {\n    generateId() {\n        return Math.floor(Math.random() * 1000000);\n    }\n\n    generateUsername(prefix = 'user') {\n        const timestamp = new Date().getTime();\n        return `${prefix}_${timestamp}`;\n    }\n\n    generateEmail(domain = 'test.com') {\n        const randomStr = Math.random().toString(36).substring(7);\n        return `tester_${randomStr}@${domain}`;\n    }\n\n    generateString(length = 10) {\n        let result = '';\n        const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';\n        for (let i = 0; i < length; i++) {\n            result += characters.charAt(Math.floor(Math.random() * characters.length));\n        }\n        return result;\n    }\n}\n",
+                  "const factory = new TestDataFactory();",
+                  "const builder = new RequestBuilder();",
+                  "",
+                  "/**",
+                  " * TC-USER-03: Update User (Happy Path)",
+                  " */",
+                  "",
+                  "// Pre-request Script logic",
+                  "",
+                  "const username = pm.environment.get('username');",
+                  "",
+                  "const userData = {",
+                  "    username: username,",
+                  "    firstName: \"Updated\",",
+                  "    lastName: \"User\"",
+                  "};",
+                  "",
+                  "const req = builder.build(`/user/${username}`, 'PUT', { body: userData });",
+                  "",
+                  "pm.variables.set('reqMethod', req.method);",
+                  "pm.variables.set('reqUrl', req.url);",
+                  "pm.variables.set('reqBody', JSON.stringify(req.body));",
+                  "",
+                  "// Apply request overrides",
+                  "if (typeof req !== 'undefined') {",
+                  "    console.log(`[Framework] Request ${pm.info.requestName}: ${req.method} ${req.url}`);",
+                  "    pm.request.url.update(req.url);",
+                  "    pm.request.method = req.method;",
+                  "    if (req.body) {",
+                  "        pm.request.body.update({",
+                  "            mode: 'raw',",
+                  "            raw: JSON.stringify(req.body)",
+                  "        });",
+                  "    }",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Global Utility Injection",
+                  "/**\n * This module provides a standardized way to send HTTP requests within the Postman sandbox.\n */\nclass ApiClient {\n    /**\n     * Sends an HTTP request using Postman pm.sendRequest\n     * @param {Object} options - Request configuration (method, url, headers, body, queryParams)\n     * @param {Function} callback - Postman callback function\n     */\n    send(options, callback) {\n        const { method, url, headers, body, queryParams } = options;\n        \n        const request = {\n            url: this._buildUrl(url, queryParams),\n            method: method || 'GET',\n            header: headers || {},\n            body: body ? {\n                mode: 'raw',\n                raw: typeof body === 'string' ? body : JSON.stringify(body),\n                options: {\n                    raw: {\n                        language: 'json'\n                    }\n                }\n            } : undefined\n        };\n\n        pm.sendRequest(request, callback);\n    }\n\n    _buildUrl(baseUrl, queryParams) {\n        if (!queryParams) return baseUrl;\n        const query = Object.keys(queryParams)\n            .map(key => `${encodeURIComponent(key)}=${encodeURIComponent(queryParams[key])}`)\n            .join('&');\n        return `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}${query}`;\n    }\n}\n\n\n/**\n * Dynamic Request Builder\n * \n * Builds API requests with environment-aware configurations.\n */\nclass RequestBuilder {\n    constructor(baseUrl) {\n        let base = baseUrl || pm.environment.get('baseUrl');\n        this.baseUrl = base.endsWith('/') ? base.slice(0, -1) : base;\n    }\n\n    build(endpoint, method = 'GET', options = {}) {\n        return {\n            method: method,\n            url: `${this.baseUrl}/${endpoint.startsWith('/') ? endpoint.substring(1) : endpoint}`,\n            headers: options.headers || { 'Content-Type': 'application/json' },\n            body: options.body,\n            queryParams: options.queryParams\n        };\n    }\n}\n\n\n/**\n * Generic Response Validator\n * \n * Standardized assertions for API responses.\n */\nclass ResponseValidator {\n    /**\n     * Asserts internal status code\n     * @param {number} code \n     */\n    static assertStatusCode(code) {\n        pm.test(`Status code is ${code}`, () => {\n            pm.response.to.have.status(code);\n        });\n    }\n\n    /**\n     * Asserts field existence in response body\n     * @param {string} fieldName \n     */\n    static assertFieldExists(fieldName) {\n        pm.test(`Response contains field: ${fieldName}`, () => {\n            const jsonData = pm.response.json();\n            pm.expect(jsonData).to.have.property(fieldName);\n        });\n    }\n\n    /**\n     * Asserts field type\n     * @param {string} fieldName \n     * @param {string} type - 'string', 'number', 'boolean', etc.\n     */\n    static assertFieldType(fieldName, type) {\n        pm.test(`${fieldName} should be of type ${type}`, () => {\n            const jsonData = pm.response.json();\n            pm.expect(jsonData[fieldName]).to.be.a(type);\n        });\n    }\n\n    /**\n     * Asserts response body structure matches expected keys\n     * @param {string[]} requiredKeys \n     */\n    static assertStructure(requiredKeys) {\n        pm.test('Response structure is valid', () => {\n            const jsonData = pm.response.json();\n            requiredKeys.forEach(key => {\n                pm.expect(jsonData).to.have.property(key);\n            });\n        });\n    }\n}\n\n\n/**\n * JSON Schema Validation Engine\n * \n * Validates responses against provided JSON schemas.\n */\nclass SchemaValidator {\n    /**\n     * Validates a JSON schema\n     * @param {Object} schema - JSON schema object\n     * @param {Object} data - Optional data to validate (defaults to pm.response.json())\n     */\n    static validate(schema, data) {\n        pm.test('Response schema is valid', () => {\n            const traceData = data || pm.response.json();\n            pm.expect(traceData).to.have.jsonSchema(schema);\n        });\n    }\n}\n\n\n/**\n * Reusable Test Data Factory\n * \n * Generates random, domain-independent test data.\n */\nclass TestDataFactory {\n    generateId() {\n        return Math.floor(Math.random() * 1000000);\n    }\n\n    generateUsername(prefix = 'user') {\n        const timestamp = new Date().getTime();\n        return `${prefix}_${timestamp}`;\n    }\n\n    generateEmail(domain = 'test.com') {\n        const randomStr = Math.random().toString(36).substring(7);\n        return `tester_${randomStr}@${domain}`;\n    }\n\n    generateString(length = 10) {\n        let result = '';\n        const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';\n        for (let i = 0; i < length; i++) {\n            result += characters.charAt(Math.floor(Math.random() * characters.length));\n        }\n        return result;\n    }\n}\n",
+                  "const validator = ResponseValidator;",
+                  "",
+                  "console.log(`[Framework] Response ${pm.info.requestName}: ${pm.response.code} ${pm.response.status}`);",
+                  "validator.assertStatusCode(200);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": ""
+            },
+            "url": {
+              "raw": "{{baseUrl}}",
+              "host": [
+                "{{baseUrl}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "getMissingUser",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Global Utility Injection",
+                  "/**\n * This module provides a standardized way to send HTTP requests within the Postman sandbox.\n */\nclass ApiClient {\n    /**\n     * Sends an HTTP request using Postman pm.sendRequest\n     * @param {Object} options - Request configuration (method, url, headers, body, queryParams)\n     * @param {Function} callback - Postman callback function\n     */\n    send(options, callback) {\n        const { method, url, headers, body, queryParams } = options;\n        \n        const request = {\n            url: this._buildUrl(url, queryParams),\n            method: method || 'GET',\n            header: headers || {},\n            body: body ? {\n                mode: 'raw',\n                raw: typeof body === 'string' ? body : JSON.stringify(body),\n                options: {\n                    raw: {\n                        language: 'json'\n                    }\n                }\n            } : undefined\n        };\n\n        pm.sendRequest(request, callback);\n    }\n\n    _buildUrl(baseUrl, queryParams) {\n        if (!queryParams) return baseUrl;\n        const query = Object.keys(queryParams)\n            .map(key => `${encodeURIComponent(key)}=${encodeURIComponent(queryParams[key])}`)\n            .join('&');\n        return `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}${query}`;\n    }\n}\n\n\n/**\n * Dynamic Request Builder\n * \n * Builds API requests with environment-aware configurations.\n */\nclass RequestBuilder {\n    constructor(baseUrl) {\n        let base = baseUrl || pm.environment.get('baseUrl');\n        this.baseUrl = base.endsWith('/') ? base.slice(0, -1) : base;\n    }\n\n    build(endpoint, method = 'GET', options = {}) {\n        return {\n            method: method,\n            url: `${this.baseUrl}/${endpoint.startsWith('/') ? endpoint.substring(1) : endpoint}`,\n            headers: options.headers || { 'Content-Type': 'application/json' },\n            body: options.body,\n            queryParams: options.queryParams\n        };\n    }\n}\n\n\n/**\n * Generic Response Validator\n * \n * Standardized assertions for API responses.\n */\nclass ResponseValidator {\n    /**\n     * Asserts internal status code\n     * @param {number} code \n     */\n    static assertStatusCode(code) {\n        pm.test(`Status code is ${code}`, () => {\n            pm.response.to.have.status(code);\n        });\n    }\n\n    /**\n     * Asserts field existence in response body\n     * @param {string} fieldName \n     */\n    static assertFieldExists(fieldName) {\n        pm.test(`Response contains field: ${fieldName}`, () => {\n            const jsonData = pm.response.json();\n            pm.expect(jsonData).to.have.property(fieldName);\n        });\n    }\n\n    /**\n     * Asserts field type\n     * @param {string} fieldName \n     * @param {string} type - 'string', 'number', 'boolean', etc.\n     */\n    static assertFieldType(fieldName, type) {\n        pm.test(`${fieldName} should be of type ${type}`, () => {\n            const jsonData = pm.response.json();\n            pm.expect(jsonData[fieldName]).to.be.a(type);\n        });\n    }\n\n    /**\n     * Asserts response body structure matches expected keys\n     * @param {string[]} requiredKeys \n     */\n    static assertStructure(requiredKeys) {\n        pm.test('Response structure is valid', () => {\n            const jsonData = pm.response.json();\n            requiredKeys.forEach(key => {\n                pm.expect(jsonData).to.have.property(key);\n            });\n        });\n    }\n}\n\n\n/**\n * JSON Schema Validation Engine\n * \n * Validates responses against provided JSON schemas.\n */\nclass SchemaValidator {\n    /**\n     * Validates a JSON schema\n     * @param {Object} schema - JSON schema object\n     * @param {Object} data - Optional data to validate (defaults to pm.response.json())\n     */\n    static validate(schema, data) {\n        pm.test('Response schema is valid', () => {\n            const traceData = data || pm.response.json();\n            pm.expect(traceData).to.have.jsonSchema(schema);\n        });\n    }\n}\n\n\n/**\n * Reusable Test Data Factory\n * \n * Generates random, domain-independent test data.\n */\nclass TestDataFactory {\n    generateId() {\n        return Math.floor(Math.random() * 1000000);\n    }\n\n    generateUsername(prefix = 'user') {\n        const timestamp = new Date().getTime();\n        return `${prefix}_${timestamp}`;\n    }\n\n    generateEmail(domain = 'test.com') {\n        const randomStr = Math.random().toString(36).substring(7);\n        return `tester_${randomStr}@${domain}`;\n    }\n\n    generateString(length = 10) {\n        let result = '';\n        const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';\n        for (let i = 0; i < length; i++) {\n            result += characters.charAt(Math.floor(Math.random() * characters.length));\n        }\n        return result;\n    }\n}\n",
+                  "const factory = new TestDataFactory();",
+                  "const builder = new RequestBuilder();",
+                  "",
+                  "/**",
+                  " * TC-USER-04: [NEG] Get Missing User",
+                  " */",
+                  "",
+                  "// Pre-request Script logic",
+                  "const req = builder.build('/user/unknown_user_99999', 'GET');",
+                  "",
+                  "// Apply request overrides",
+                  "if (typeof req !== 'undefined') {",
+                  "    console.log(`[Framework] Request ${pm.info.requestName}: ${req.method} ${req.url}`);",
+                  "    pm.request.url.update(req.url);",
+                  "    pm.request.method = req.method;",
+                  "    if (req.body) {",
+                  "        pm.request.body.update({",
+                  "            mode: 'raw',",
+                  "            raw: JSON.stringify(req.body)",
+                  "        });",
+                  "    }",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Global Utility Injection",
+                  "/**\n * This module provides a standardized way to send HTTP requests within the Postman sandbox.\n */\nclass ApiClient {\n    /**\n     * Sends an HTTP request using Postman pm.sendRequest\n     * @param {Object} options - Request configuration (method, url, headers, body, queryParams)\n     * @param {Function} callback - Postman callback function\n     */\n    send(options, callback) {\n        const { method, url, headers, body, queryParams } = options;\n        \n        const request = {\n            url: this._buildUrl(url, queryParams),\n            method: method || 'GET',\n            header: headers || {},\n            body: body ? {\n                mode: 'raw',\n                raw: typeof body === 'string' ? body : JSON.stringify(body),\n                options: {\n                    raw: {\n                        language: 'json'\n                    }\n                }\n            } : undefined\n        };\n\n        pm.sendRequest(request, callback);\n    }\n\n    _buildUrl(baseUrl, queryParams) {\n        if (!queryParams) return baseUrl;\n        const query = Object.keys(queryParams)\n            .map(key => `${encodeURIComponent(key)}=${encodeURIComponent(queryParams[key])}`)\n            .join('&');\n        return `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}${query}`;\n    }\n}\n\n\n/**\n * Dynamic Request Builder\n * \n * Builds API requests with environment-aware configurations.\n */\nclass RequestBuilder {\n    constructor(baseUrl) {\n        let base = baseUrl || pm.environment.get('baseUrl');\n        this.baseUrl = base.endsWith('/') ? base.slice(0, -1) : base;\n    }\n\n    build(endpoint, method = 'GET', options = {}) {\n        return {\n            method: method,\n            url: `${this.baseUrl}/${endpoint.startsWith('/') ? endpoint.substring(1) : endpoint}`,\n            headers: options.headers || { 'Content-Type': 'application/json' },\n            body: options.body,\n            queryParams: options.queryParams\n        };\n    }\n}\n\n\n/**\n * Generic Response Validator\n * \n * Standardized assertions for API responses.\n */\nclass ResponseValidator {\n    /**\n     * Asserts internal status code\n     * @param {number} code \n     */\n    static assertStatusCode(code) {\n        pm.test(`Status code is ${code}`, () => {\n            pm.response.to.have.status(code);\n        });\n    }\n\n    /**\n     * Asserts field existence in response body\n     * @param {string} fieldName \n     */\n    static assertFieldExists(fieldName) {\n        pm.test(`Response contains field: ${fieldName}`, () => {\n            const jsonData = pm.response.json();\n            pm.expect(jsonData).to.have.property(fieldName);\n        });\n    }\n\n    /**\n     * Asserts field type\n     * @param {string} fieldName \n     * @param {string} type - 'string', 'number', 'boolean', etc.\n     */\n    static assertFieldType(fieldName, type) {\n        pm.test(`${fieldName} should be of type ${type}`, () => {\n            const jsonData = pm.response.json();\n            pm.expect(jsonData[fieldName]).to.be.a(type);\n        });\n    }\n\n    /**\n     * Asserts response body structure matches expected keys\n     * @param {string[]} requiredKeys \n     */\n    static assertStructure(requiredKeys) {\n        pm.test('Response structure is valid', () => {\n            const jsonData = pm.response.json();\n            requiredKeys.forEach(key => {\n                pm.expect(jsonData).to.have.property(key);\n            });\n        });\n    }\n}\n\n\n/**\n * JSON Schema Validation Engine\n * \n * Validates responses against provided JSON schemas.\n */\nclass SchemaValidator {\n    /**\n     * Validates a JSON schema\n     * @param {Object} schema - JSON schema object\n     * @param {Object} data - Optional data to validate (defaults to pm.response.json())\n     */\n    static validate(schema, data) {\n        pm.test('Response schema is valid', () => {\n            const traceData = data || pm.response.json();\n            pm.expect(traceData).to.have.jsonSchema(schema);\n        });\n    }\n}\n\n\n/**\n * Reusable Test Data Factory\n * \n * Generates random, domain-independent test data.\n */\nclass TestDataFactory {\n    generateId() {\n        return Math.floor(Math.random() * 1000000);\n    }\n\n    generateUsername(prefix = 'user') {\n        const timestamp = new Date().getTime();\n        return `${prefix}_${timestamp}`;\n    }\n\n    generateEmail(domain = 'test.com') {\n        const randomStr = Math.random().toString(36).substring(7);\n        return `tester_${randomStr}@${domain}`;\n    }\n\n    generateString(length = 10) {\n        let result = '';\n        const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';\n        for (let i = 0; i < length; i++) {\n            result += characters.charAt(Math.floor(Math.random() * characters.length));\n        }\n        return result;\n    }\n}\n",
+                  "const validator = ResponseValidator;",
+                  "",
+                  "console.log(`[Framework] Response ${pm.info.requestName}: ${pm.response.code} ${pm.response.status}`);",
+                  "validator.assertStatusCode(404);",
+                  "pm.test(\"Status code is 404\", () => {",
+                  "    pm.response.to.have.status(404);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": ""
+            },
+            "url": {
+              "raw": "{{baseUrl}}",
+              "host": [
+                "{{baseUrl}}"
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

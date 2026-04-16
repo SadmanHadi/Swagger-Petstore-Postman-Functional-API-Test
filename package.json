@@ -3,11 +3,12 @@
   "version": "1.0.0",
   "description": "Automated API testing suite for Swagger Petstore",
   "scripts": {
-    "test": "node scripts/run-newman.js"
+    "test": "node run-newman.js",
+    "build": "node build-collection.js"
   },
   "devDependencies": {
-    "dotenv": "^16.4.5",
-    "newman": "^6.1.2",
-    "newman-reporter-htmlextra": "^1.23.1"
+    "dotenv": "16.4.5",
+    "newman": "6.1.2",
+    "newman-reporter-htmlextra": "1.23.1"
   }
 }

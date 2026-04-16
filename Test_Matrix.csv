@@ -1,0 +1,17 @@
+TestCaseID,TestCaseScenario,TestCaseSteps,TestCaseStatus
+PET-01,Create Pet,POST /pet with random data,200 OK
+PET-02,Get Pet,GET /pet/{id} using created ID,200 OK
+PET-03,Update Pet,PUT /pet with updated status,200 OK
+PET-04,Delete Pet,DELETE /pet/{id},200 OK
+PET-05,[NEG] Get Missing Pet,GET /pet/-1,404 Not Found
+PET-06,[BOUND] Create Pet Empty Name,POST /pet with empty name,200 OK
+PET-07,[NEG] Delete Non-existent,DELETE /pet/0,404 Not Found
+STORE-01,Create Order,POST /store/order,200 OK
+STORE-02,Get Order,GET /store/order/{id},200 OK
+STORE-03,[NEG] Get Missing Order,GET /store/order/-1,404 Not Found
+STORE-04,[BOUND] Create Order IQ 0,POST /store/order quantity 0,200 OK
+USER-01,Create User,POST /user with random data,200 OK
+USER-02,Get User,GET /user/{username},200 OK
+USER-03,Update User,PUT /user/{user},200 OK
+USER-04,[NEG] Get Missing User,GET /user/unknown,404 Not Found
+USER-05,[BOUND] User Long Bio,POST /user with long strings,200 OK

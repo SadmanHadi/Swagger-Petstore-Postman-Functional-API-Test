@@ -1,69 +1,53 @@
-# Swagger Petstore API Tests — Postman
+# API Automation Framework
 
-Automated API testing suite for the [Swagger Petstore API](https://petstore.swagger.io/).
+A production-grade, domain-agnostic API automation framework using Postman, Newman, and a modular JavaScript utility layer.
 
-## 🌟 Quality Standards
+## 🚀 Key Features
+- **Domain Agnostic**: Utilities are designed to work with any REST API.
+- **Modular JavaScript**: Local JS files for utilities and tests are synced to the Postman collection via a build step.
+- **Deep Validation**: Integrated schema validation and generic response assertions.
+- **CI/CD Ready**: GitHub Actions pipeline integrated with advanced HTML and JSON reporting.
+- **Data Driven**: Test data factory for random, conflict-free data generation.
 
-This project adheres to **Global Rules** for API testing:
+## 🏗️ Architecture
+The framework uses a "Build-Time Sync" approach:
+1.  **`/postman/utils`**: Reusable JS modules (apiClient, validators, etc.).
+2.  **`/postman/tests`**: Modular test scripts organized by domain.
+3.  **`scripts/build-collection.js`**: Bundles JS files into the final `petstore.collection.json`.
+4.  **`scripts/run-newman.js`**: Execution wrapper that triggers the build and runs Newman.
 
-- **Security**: No credentials in code. `.env` used locally, Secrets in CI.
-- **Reporting**: Detailed HTML dashboards generated locally and in CI.
-- **Robustness**: JSON Schema validations, precision handling, and automated cleanup.
+## 📋 Prerequisites
+- **Node.js**: v20.x or higher
+- **pnpm**: v9.x or higher (recommended) or npm v10.x+
 
-## 🚀 Quick Start
+## 🛠️ Setup & Local Execution
+1.  **Install dependencies**:
+    ```bash
+    pnpm install
+    ```
+2.  **Set environment variables**:
+    Create a `.env` file based on `.env.example`.
+3.  **Run tests**:
+    ```bash
+    pnpm test
+    ```
 
-### Prerequisites
+## ⚙️ CI/CD Execution
+This project is integrated with **GitHub Actions**.
+- **Workflow**: `.github/workflows/api-tests.yml`
+- **Trigger**: Runs on every push to `main` or `master` and all Pull Requests.
+- **Execution**: The pipeline installs Node.js, pnpm, and runs the `pnpm test` command.
+- **Artifacts**: HTML and JSON reports are automatically uploaded as GitHub artifacts at the end of each run.
 
-- [Node.js](https://nodejs.org/)
-- [pnpm](https://pnpm.io/) (`npm install -g pnpm`)
+## 📊 Reports
+Reports are generated after every run in `/reports/postman/`:
+- `newman-report.html`: Detailed visual report with request/response traces.
+- `newman-summary.json`: Machine-readable summary for CI/CD metrics.
 
-### Installation & Setup
-
-1. Clone the repo.
-2. Install dependencies: `pnpm install`
-3. Copy `.env.example` to `.env`; edit `.env` to set `BASE_URL` if you need a different API base URL (otherwise the default in `Petstore_Environment.json` is used).
-
-## 🛠 Running Locally
-
-Run all tests and generate a dashboard report:
-
-```bash
-pnpm test
-```
-
-Reports are saved in `reports/postman/report.html`. Open this file in your browser to see a detailed test dashboard.
-
-## 🤖 CI/CD
-
-Tests run automatically on every push via GitHub Actions.
-
-1. Go to **Actions** tab in GitHub.
-2. Select the latest run.
-3. Download `postman-reports` from the **Artifacts** section at the bottom.
-4. Extract and open `report.html` to view the results.
-
-## 📁 Project Structure
-
-- `Petstore_API_Collection.json`: Main testing suite (schema checks, pre-request script, happy/negative/boundary).
-- `API_Test_Cases.md`: Test case definitions (Happy, Negative, Boundary) with cleanup strategy.
-- `Petstore_Environment.json`: Base URL and environment.
-- `scripts/run-newman.js`: Test runner; loads `.env` so `BASE_URL` overrides base URL when set.
-- `.env.example`: Template for local overrides (e.g. `BASE_URL`).
-
-## 📝 Project Notes
-
-### Assumptions
-
-- The [Swagger Petstore API](https://petstore.swagger.io/) is available and stable.
-- Rate limits on the public API are not exceeded during test runs.
-
-### Known Limitations
-
-- Public API may occasionally return 500/504 due to load.
-- Global namespace collisions are possible but mitigated by `$timestamp`.
+## 💡 Known Limitations & Assumptions
+- **Public API Flakiness**: The Swagger Petstore API is a public resource with shared state. Occasional 404s or 500s (especially in the User domain) are environmental artifacts and do not reflect framework logic failures.
+- **Shared Environment**: Tests assume a clean start when possible, but concurrent runs by other users may occasionally cause data conflicts.
 
 ## 🔒 Security
-
-- **Local**: All sensitive variables are stored in `.env`.
-- **CI**: Secrets are managed via GitHub Actions Secrets.
-- **Verification**: `.gitignore` ensures no sensitive data is committed.
+- **No Credentials in Code**: All sensitive data is managed via `.env` or CI secrets.
+- **Environment Aware**: Variables are dynamically injected based on the execution context.

@@ -1,5 +1,5 @@
+node_modules
 .env
-node_modules/
-reports/postman/*
-!reports/postman/.gitkeep
-*.log
+reports
+.DS_Store
+.planning
