@@ -33,7 +33,7 @@ jobs:
       - name: Run Framework Tests
         run: pnpm test
         env:
-          BASE_URL: https://petstore.swagger.io/
+          BASE_URL: https://petstore.swagger.io
 
       - name: Upload Test Results
         if: always()

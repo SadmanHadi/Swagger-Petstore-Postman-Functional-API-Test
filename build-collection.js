@@ -65,6 +65,10 @@ function buildCollection() {
                             type: "text/javascript",
                             exec: [
                                 "// Global Utility Injection",
+                                "let currentBase = pm.environment.get('baseUrl') || '';",
+                                "if (currentBase.includes('petstore.swagger.io') && !currentBase.includes('/v2')) {",
+                                "    pm.variables.set('baseUrl', currentBase.replace(/\\/+$/, '') + '/v2');",
+                                "}",
                                 utils,
                                 "const factory = new TestDataFactory();",
                                 "const builder = new RequestBuilder();",
